@@ -205,6 +205,8 @@ final class AI_News_Control_Center {
         // Admin only - load admin class
         if (is_admin()) {
             add_action('plugins_loaded', [$this, 'init_admin'], 15);
+            // Check and repair cron schedules on admin load
+            add_action('admin_init', [$this, 'check_cron_schedules']);
         }
 
         // REST API - only load on REST requests
@@ -493,6 +495,40 @@ final class AI_News_Control_Center {
             $tomorrow_3am = strtotime('tomorrow 3:00am');
             wp_schedule_event($tomorrow_3am, 'daily', 'aincc_cleanup_old_data');
         }
+    }
+
+    /**
+     * Check and repair cron schedules if missing (called on admin_init)
+     */
+    public function check_cron_schedules() {
+        // Only check once per hour to avoid overhead
+        $last_check = get_transient('aincc_cron_check');
+        if ($last_check) {
+            return;
+        }
+
+        $missing_crons = false;
+        $required_crons = ['aincc_fetch_sources', 'aincc_process_queue', 'aincc_auto_publish', 'aincc_cleanup_old_data'];
+
+        foreach ($required_crons as $hook) {
+            if (!wp_next_scheduled($hook)) {
+                $missing_crons = true;
+                break;
+            }
+        }
+
+        if ($missing_crons) {
+            // Reschedule all crons
+            $this->schedule_cron_jobs();
+
+            $this->ensure_core_loaded();
+            if (class_exists('AINCC_Logger')) {
+                AINCC_Logger::info('Cron schedules auto-repaired');
+            }
+        }
+
+        // Set transient for 1 hour
+        set_transient('aincc_cron_check', 1, HOUR_IN_SECONDS);
     }
 
     /**

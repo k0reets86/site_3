@@ -555,8 +555,27 @@ class AINCC_Scheduler {
             return ['success' => false, 'error' => 'Invalid cron hook'];
         }
 
-        // Call the method directly instead of do_action for better control
         $method = $allowed_hooks[$hook];
+
+        // For manual triggers, force-clear any stale locks (locks older than 5 minutes)
+        $lock_key = self::LOCK_PREFIX . $method;
+        $existing_lock = get_transient($lock_key);
+        if ($existing_lock !== false) {
+            // Check if lock is stale (older than 5 minutes)
+            if (is_numeric($existing_lock) && (time() - $existing_lock) > 300) {
+                delete_transient($lock_key);
+                AINCC_Logger::info("Stale lock cleared for {$method}");
+            } else {
+                // Job is still running, return info
+                return [
+                    'success' => false,
+                    'error' => 'Задача уже выполняется. Попробуйте через несколько минут.',
+                    'running_since' => is_numeric($existing_lock) ? date('H:i:s', $existing_lock) : 'unknown',
+                ];
+            }
+        }
+
+        // Call the method directly instead of do_action for better control
         return $this->$method();
     }
 

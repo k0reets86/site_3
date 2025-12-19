@@ -283,8 +283,12 @@ class AINCC_Publisher {
     private function set_featured_image($post_id, $draft) {
         // Check if draft already has image in media library
         if (!empty($draft['image_local_id'])) {
-            set_post_thumbnail($post_id, $draft['image_local_id']);
-            return true;
+            $attachment_exists = get_post($draft['image_local_id']);
+            if ($attachment_exists) {
+                set_post_thumbnail($post_id, $draft['image_local_id']);
+                AINCC_Logger::debug('Using existing media library image', ['attachment_id' => $draft['image_local_id']]);
+                return true;
+            }
         }
 
         // If has image URL, download and attach
@@ -296,6 +300,7 @@ class AINCC_Publisher {
                 'license' => $draft['image_license'] ?? '',
             ];
 
+            AINCC_Logger::debug('Downloading image from URL', ['url' => $draft['image_url']]);
             $attachment_id = $this->image_handler->save_to_media_library($image_data, $post_id);
 
             if ($attachment_id) {
@@ -306,12 +311,26 @@ class AINCC_Publisher {
                     'image_local_id' => $attachment_id,
                 ]);
 
+                AINCC_Logger::info('Image downloaded and attached', ['attachment_id' => $attachment_id]);
                 return true;
+            } else {
+                AINCC_Logger::warning('Failed to download image from URL', ['url' => $draft['image_url']]);
             }
         }
 
-        // No image available - try to find one
-        $keywords = json_decode($draft['keywords'], true) ?: [];
+        // No image available - try to find one from Pexels
+        $keywords = json_decode($draft['keywords'] ?? '[]', true) ?: [];
+
+        // If no keywords, extract from title
+        if (empty($keywords)) {
+            $title_words = explode(' ', $draft['title']);
+            $keywords = array_filter($title_words, function($w) {
+                return strlen($w) > 4;
+            });
+            $keywords = array_slice(array_values($keywords), 0, 5);
+        }
+
+        AINCC_Logger::debug('Searching for image', ['keywords' => $keywords, 'title' => $draft['title'], 'category' => $draft['category']]);
         $image_data = $this->image_handler->find_image($keywords, $draft['title'], $draft['category']);
 
         if ($image_data) {
@@ -319,10 +338,12 @@ class AINCC_Publisher {
 
             if ($attachment_id) {
                 set_post_thumbnail($post_id, $attachment_id);
+                AINCC_Logger::info('Auto-found image attached', ['attachment_id' => $attachment_id, 'source' => $image_data['source'] ?? 'unknown']);
                 return true;
             }
         }
 
+        AINCC_Logger::warning('No image could be attached to post', ['post_id' => $post_id, 'draft_id' => $draft['id']]);
         return false;
     }
 
