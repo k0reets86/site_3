@@ -1,0 +1,729 @@
+/* AI News Control Center Admin Styles */
+
+/* Reset WordPress admin styles for our container */
+#aincc-root {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #0f172a;
+    min-height: 100vh;
+    margin-left: -20px;
+    margin-top: -20px;
+}
+
+#aincc-root * {
+    box-sizing: border-box;
+}
+
+/* Loading state */
+.aincc-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    color: #94a3b8;
+}
+
+.aincc-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #1e293b;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: aincc-spin 1s linear infinite;
+}
+
+@keyframes aincc-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Admin bar badge */
+#wp-admin-bar-aincc-admin-bar .aincc-badge {
+    display: inline-block;
+    background: #ef4444;
+    color: white;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+/* App Layout */
+.aincc-app-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar */
+.aincc-sidebar {
+    width: 256px;
+    background: #1e293b;
+    padding: 20px;
+    flex-shrink: 0;
+}
+
+.aincc-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    margin-bottom: 24px;
+}
+
+.aincc-logo-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.aincc-logo-text {
+    color: white;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.aincc-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.aincc-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    color: #94a3b8;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.aincc-nav-item:hover {
+    background: #334155;
+    color: white;
+}
+
+.aincc-nav-item.active {
+    background: #3b82f6;
+    color: white;
+}
+
+.aincc-nav-item svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* Main Content */
+.aincc-main {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+}
+
+/* Header */
+.aincc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.aincc-header h1 {
+    color: white;
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0;
+}
+
+/* Stats Cards */
+.aincc-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.aincc-stat-card {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.aincc-stat-label {
+    color: #64748b;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.aincc-stat-value {
+    color: white;
+    font-size: 28px;
+    font-weight: 600;
+}
+
+.aincc-stat-change {
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.aincc-stat-change.positive {
+    color: #22c55e;
+}
+
+.aincc-stat-change.negative {
+    color: #ef4444;
+}
+
+/* Filters */
+.aincc-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.aincc-filter-btn {
+    padding: 8px 16px;
+    background: #334155;
+    border: none;
+    border-radius: 20px;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+}
+
+.aincc-filter-btn:hover {
+    background: #475569;
+    color: white;
+}
+
+.aincc-filter-btn.active {
+    background: #3b82f6;
+    color: white;
+}
+
+.aincc-filter-btn .count {
+    margin-left: 6px;
+    background: rgba(255,255,255,0.2);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+/* Table */
+.aincc-table-container {
+    background: #1e293b;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.aincc-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.aincc-table th {
+    background: #0f172a;
+    color: #64748b;
+    font-weight: 500;
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.aincc-table td {
+    padding: 16px;
+    color: #e2e8f0;
+    border-bottom: 1px solid #334155;
+    vertical-align: middle;
+}
+
+.aincc-table tr:hover {
+    background: #334155;
+}
+
+.aincc-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Status badges */
+.aincc-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.aincc-status.pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.aincc-status.auto-ready {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.aincc-status.published {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.aincc-status.rejected {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.aincc-status.processing {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
+/* Action buttons */
+.aincc-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.aincc-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.aincc-btn-primary {
+    background: #3b82f6;
+    color: white;
+}
+
+.aincc-btn-primary:hover {
+    background: #2563eb;
+}
+
+.aincc-btn-success {
+    background: #22c55e;
+    color: white;
+}
+
+.aincc-btn-success:hover {
+    background: #16a34a;
+}
+
+.aincc-btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.aincc-btn-danger:hover {
+    background: #dc2626;
+}
+
+.aincc-btn-secondary {
+    background: #475569;
+    color: white;
+}
+
+.aincc-btn-secondary:hover {
+    background: #64748b;
+}
+
+.aincc-btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.aincc-btn-icon {
+    padding: 8px;
+    background: transparent;
+    color: #64748b;
+}
+
+.aincc-btn-icon:hover {
+    background: #334155;
+    color: white;
+}
+
+/* Article card */
+.aincc-article-title {
+    font-weight: 500;
+    color: white;
+    margin-bottom: 4px;
+}
+
+.aincc-article-lead {
+    font-size: 13px;
+    color: #64748b;
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Source info */
+.aincc-source {
+    display: flex;
+    flex-direction: column;
+}
+
+.aincc-source-name {
+    font-size: 14px;
+    color: #e2e8f0;
+}
+
+.aincc-source-trust {
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* Modal */
+.aincc-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100000;
+}
+
+.aincc-modal {
+    background: #1e293b;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 900px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.aincc-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid #334155;
+}
+
+.aincc-modal-header h2 {
+    color: white;
+    font-size: 18px;
+    margin: 0;
+}
+
+.aincc-modal-close {
+    background: transparent;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    padding: 8px;
+}
+
+.aincc-modal-close:hover {
+    color: white;
+}
+
+.aincc-modal-body {
+    padding: 24px;
+}
+
+.aincc-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 20px 24px;
+    border-top: 1px solid #334155;
+}
+
+/* Form elements */
+.aincc-form-group {
+    margin-bottom: 20px;
+}
+
+.aincc-label {
+    display: block;
+    color: #94a3b8;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.aincc-input,
+.aincc-textarea,
+.aincc-select {
+    width: 100%;
+    padding: 12px 16px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+}
+
+.aincc-input:focus,
+.aincc-textarea:focus,
+.aincc-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.aincc-textarea {
+    min-height: 150px;
+    resize: vertical;
+}
+
+/* Language tabs */
+.aincc-lang-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+}
+
+.aincc-lang-tab {
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.aincc-lang-tab:hover {
+    border-color: #64748b;
+    color: white;
+}
+
+.aincc-lang-tab.active {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+}
+
+/* Preview */
+.aincc-preview {
+    background: #0f172a;
+    border-radius: 12px;
+    padding: 24px;
+}
+
+.aincc-preview-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.aincc-preview-title {
+    color: white;
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.aincc-preview-lead {
+    color: #94a3b8;
+    font-size: 16px;
+    margin-bottom: 16px;
+}
+
+.aincc-preview-content {
+    color: #e2e8f0;
+    line-height: 1.6;
+}
+
+.aincc-preview-content h2 {
+    color: white;
+    font-size: 18px;
+    margin: 20px 0 12px;
+}
+
+.aincc-preview-content p {
+    margin-bottom: 12px;
+}
+
+/* Empty state */
+.aincc-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #64748b;
+}
+
+.aincc-empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.aincc-empty-text {
+    font-size: 16px;
+}
+
+/* Pagination */
+.aincc-pagination {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 24px;
+}
+
+.aincc-pagination button {
+    padding: 8px 16px;
+    background: #334155;
+    border: none;
+    border-radius: 6px;
+    color: #94a3b8;
+    cursor: pointer;
+}
+
+.aincc-pagination button:hover:not(:disabled) {
+    background: #475569;
+    color: white;
+}
+
+.aincc-pagination button.active {
+    background: #3b82f6;
+    color: white;
+}
+
+.aincc-pagination button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Toast notifications */
+.aincc-toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100001;
+}
+
+.aincc-toast {
+    background: #1e293b;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: aincc-slide-in 0.3s ease;
+}
+
+@keyframes aincc-slide-in {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.aincc-toast.success {
+    border-left: 4px solid #22c55e;
+}
+
+.aincc-toast.error {
+    border-left: 4px solid #ef4444;
+}
+
+.aincc-toast.info {
+    border-left: 4px solid #3b82f6;
+}
+
+.aincc-toast-message {
+    color: white;
+    font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .aincc-sidebar {
+        width: 200px;
+    }
+}
+
+@media (max-width: 768px) {
+    .aincc-app-container {
+        flex-direction: column;
+    }
+
+    .aincc-sidebar {
+        width: 100%;
+    }
+
+    .aincc-stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* Toggle Switch */
+.aincc-toggle {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    cursor: pointer;
+}
+
+.aincc-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.aincc-toggle-slider {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #475569;
+    border-radius: 24px;
+    transition: 0.3s;
+}
+
+.aincc-toggle-slider::before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    border-radius: 50%;
+    transition: 0.3s;
+}
+
+.aincc-toggle input:checked + .aincc-toggle-slider {
+    background-color: #22c55e;
+}
+
+.aincc-toggle input:checked + .aincc-toggle-slider::before {
+    transform: translateX(20px);
+}
+
+.aincc-toggle:hover .aincc-toggle-slider {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}

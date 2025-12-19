@@ -1,0 +1,5 @@
+{
+  "name": "AI News Control Center",
+  "description": "Autonomous News Platform Admin Interface for editors to manage AI-generated content across multiple languages.",
+  "requestFramePermissions": []
+}
