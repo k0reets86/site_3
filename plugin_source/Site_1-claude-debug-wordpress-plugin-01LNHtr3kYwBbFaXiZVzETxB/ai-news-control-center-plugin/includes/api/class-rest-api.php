@@ -776,6 +776,15 @@ class AINCC_REST_API {
         $parser = new AINCC_RSS_Parser();
         $sources = $parser->get_all_sources();
 
+        // Ensure proper types for frontend (MySQL returns strings)
+        $sources = array_map(function($source) {
+            $source['enabled'] = (int) $source['enabled'];
+            $source['trust_score'] = (float) $source['trust_score'];
+            $source['fetch_interval'] = (int) $source['fetch_interval'];
+            $source['error_count'] = (int) ($source['error_count'] ?? 0);
+            return $source;
+        }, $sources);
+
         return new WP_REST_Response(['items' => $sources], 200);
     }
 
@@ -1338,7 +1347,9 @@ class AINCC_REST_API {
             ], 404);
         }
 
-        $new_status = $source['enabled'] ? 0 : 1;
+        // Properly cast to int for comparison (database might return string '0' or '1')
+        $current_status = (int) $source['enabled'];
+        $new_status = $current_status ? 0 : 1;
 
         $result = $wpdb->update(
             $db->table('sources'),
@@ -1347,7 +1358,7 @@ class AINCC_REST_API {
         );
 
         if ($result !== false) {
-            AINCC_Logger::info('Source toggled', ['id' => $id, 'enabled' => $new_status]);
+            AINCC_Logger::info('Source toggled', ['id' => $id, 'was' => $current_status, 'now' => $new_status]);
             return new WP_REST_Response([
                 'success' => true,
                 'enabled' => (bool) $new_status,
@@ -1753,16 +1764,40 @@ class AINCC_REST_API {
             ], 404);
         }
 
-        $db->update_draft($id, [
+        // Try to pre-download image to media library for faster publishing
+        $image_local_id = null;
+        $image_handler = new AINCC_Image_Handler();
+        $image_data = [
+            'url' => $image_url,
+            'alt' => $alt ?: $draft['title'],
+            'author' => $author,
+            'license' => 'Pexels License',
+            'source' => 'Pexels',
+        ];
+
+        $attachment_id = $image_handler->save_to_media_library($image_data, 0);
+        if ($attachment_id) {
+            $image_local_id = $attachment_id;
+            AINCC_Logger::info('Image pre-downloaded to media library', ['draft_id' => $id, 'attachment_id' => $attachment_id]);
+        }
+
+        $update_data = [
             'image_url' => esc_url_raw($image_url),
             'image_alt' => sanitize_text_field($alt ?: $draft['title']),
             'image_author' => sanitize_text_field($author),
-            'image_license' => 'External',
-        ]);
+            'image_license' => 'Pexels License',
+        ];
+
+        if ($image_local_id) {
+            $update_data['image_local_id'] = $image_local_id;
+        }
+
+        $db->update_draft($id, $update_data);
 
         return new WP_REST_Response([
             'success' => true,
             'image_url' => $image_url,
+            'image_local_id' => $image_local_id,
         ], 200);
     }
 
@@ -1821,7 +1856,7 @@ class AINCC_REST_API {
         $db = new AINCC_Database();
         $types = $request->get_param('types') ?: ['rejected', 'failed'];
 
-        $valid_types = ['rejected', 'failed', 'published', 'auto_ready'];
+        $valid_types = ['rejected', 'failed', 'published', 'auto_ready', 'pending_ok'];
         $types = array_intersect($types, $valid_types);
 
         if (empty($types)) {

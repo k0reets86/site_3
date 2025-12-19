@@ -1076,9 +1076,48 @@ class AINCC_Database {
     }
 
     /**
-     * Insert draft
+     * Insert draft with duplicate check
      */
     public function insert_draft($data) {
+        // Check for duplicate draft (same raw_item_id + lang, or same title + lang in last 24h)
+        if (!empty($data['raw_item_id']) && !empty($data['lang'])) {
+            $exists = $this->wpdb->get_var(
+                $this->wpdb->prepare(
+                    "SELECT id FROM {$this->table('drafts')}
+                     WHERE raw_item_id = %d AND lang = %s",
+                    $data['raw_item_id'],
+                    $data['lang']
+                )
+            );
+            if ($exists) {
+                AINCC_Logger::debug('Duplicate draft skipped (same raw_item)', [
+                    'raw_item_id' => $data['raw_item_id'],
+                    'lang' => $data['lang'],
+                ]);
+                return false;
+            }
+        }
+
+        // Also check for title duplicates (manual articles)
+        if (!empty($data['title']) && !empty($data['lang'])) {
+            $title_exists = $this->wpdb->get_var(
+                $this->wpdb->prepare(
+                    "SELECT id FROM {$this->table('drafts')}
+                     WHERE title = %s AND lang = %s
+                     AND created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)",
+                    $data['title'],
+                    $data['lang']
+                )
+            );
+            if ($title_exists) {
+                AINCC_Logger::debug('Duplicate draft skipped (same title)', [
+                    'title' => $data['title'],
+                    'lang' => $data['lang'],
+                ]);
+                return false;
+            }
+        }
+
         $this->wpdb->insert($this->table('drafts'), $data);
         return $this->wpdb->insert_id ? $data['id'] : false;
     }

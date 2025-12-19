@@ -643,10 +643,22 @@ class AINCC_Content_Processor {
         $drafts[$source_lang] = $source_draft_id;
 
         // Auto-assign image to source language draft
+        $image_result = null;
         try {
             $image_handler = new AINCC_Image_Handler();
             $keywords = $seo['success'] && !empty($seo['keywords']) ? $seo['keywords'] : ($analysis['keywords'] ?? []);
-            $image_handler->assign_to_draft($source_draft_id);
+            // If no keywords from SEO, extract from title
+            if (empty($keywords)) {
+                $title_words = explode(' ', $data['title']);
+                $keywords = array_filter($title_words, function($w) {
+                    return strlen($w) > 4;
+                });
+                $keywords = array_slice(array_values($keywords), 0, 5);
+            }
+            $image_result = $image_handler->assign_to_draft($source_draft_id);
+            if ($image_result && $image_result['success']) {
+                AINCC_Logger::info('Image assigned to draft', ['draft_id' => $source_draft_id, 'image' => $image_result['image']['url'] ?? 'unknown']);
+            }
         } catch (Exception $e) {
             AINCC_Logger::warning('Auto-assign image failed', ['error' => $e->getMessage()]);
         }
@@ -672,6 +684,9 @@ class AINCC_Content_Processor {
             $target_content = $translated_title['content'] . "\n\n" . ($translated_lead['content'] ?? '') . "\n\n" . $translated_body['content'];
             $target_seo = $this->ai->generate_seo($target_content, $target_lang);
 
+            // Get source draft to copy image data
+            $source_draft_for_image = $this->db->get_draft($source_draft_id);
+
             $target_draft = [
                 'id' => $target_draft_id,
                 'event_id' => null,
@@ -691,6 +706,12 @@ class AINCC_Content_Processor {
                 'status' => 'pending_ok',
                 'gate_reason' => 'manual_submission',
                 'created_by' => get_current_user_id(),
+                // Copy image from source draft
+                'image_url' => $source_draft_for_image['image_url'] ?? null,
+                'image_alt' => $source_draft_for_image['image_alt'] ?? null,
+                'image_author' => $source_draft_for_image['image_author'] ?? null,
+                'image_license' => $source_draft_for_image['image_license'] ?? null,
+                'image_local_id' => $source_draft_for_image['image_local_id'] ?? null,
             ];
 
             $this->db->insert_draft($target_draft);

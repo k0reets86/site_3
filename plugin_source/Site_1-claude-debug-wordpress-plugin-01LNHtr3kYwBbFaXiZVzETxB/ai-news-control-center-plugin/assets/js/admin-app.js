@@ -178,24 +178,27 @@
         );
     };
 
-    // Статистика
-    const DashboardStats = ({ stats }) => {
+    // Статистика с кнопками очистки
+    const DashboardStats = ({ stats, onClear }) => {
+        const statItems = [
+            { key: 'pending', label: 'На проверку', value: stats.pending || 0, clearable: true, clearType: 'pending_ok' },
+            { key: 'auto_ready', label: 'Готово к публикации', value: stats.auto_ready || 0, clearable: true, clearType: 'auto_ready' },
+            { key: 'published', label: 'Опубликовано (7 дней)', value: stats.published || 0, clearable: true, clearType: 'published' },
+            { key: 'rejected', label: 'Отклонено', value: stats.rejected || 0, clearable: true, clearType: 'rejected' },
+        ];
+
         return h('div', { className: 'aincc-stats-grid' },
-            h('div', { className: 'aincc-stat-card' },
-                h('div', { className: 'aincc-stat-label' }, 'На проверку'),
-                h('div', { className: 'aincc-stat-value' }, stats.pending || 0)
-            ),
-            h('div', { className: 'aincc-stat-card' },
-                h('div', { className: 'aincc-stat-label' }, 'Готово к публикации'),
-                h('div', { className: 'aincc-stat-value' }, stats.auto_ready || 0)
-            ),
-            h('div', { className: 'aincc-stat-card' },
-                h('div', { className: 'aincc-stat-label' }, 'Опубликовано (7 дней)'),
-                h('div', { className: 'aincc-stat-value' }, stats.published || 0)
-            ),
-            h('div', { className: 'aincc-stat-card' },
-                h('div', { className: 'aincc-stat-label' }, 'Отклонено'),
-                h('div', { className: 'aincc-stat-value' }, stats.rejected || 0)
+            statItems.map(item =>
+                h('div', { key: item.key, className: 'aincc-stat-card', style: { position: 'relative' } },
+                    h('div', { className: 'aincc-stat-label' }, item.label),
+                    h('div', { className: 'aincc-stat-value' }, item.value),
+                    item.clearable && item.value > 0 && onClear && h('button', {
+                        className: 'aincc-btn aincc-btn-icon',
+                        style: { position: 'absolute', top: 8, right: 8, padding: '4px 8px', fontSize: 12, opacity: 0.7 },
+                        title: `Очистить все (${item.label.toLowerCase()})`,
+                        onClick: () => onClear(item.clearType),
+                    }, Icons.trash)
+                )
             )
         );
     };
@@ -621,15 +624,24 @@
             setFetching(false);
         };
 
-        const handleClearQueue = async (types) => {
-            if (!confirm(`Очистить выбранные записи?`)) return;
+        const handleClearQueue = async (typesOrType) => {
+            // Accept single type or array of types
+            const types = Array.isArray(typesOrType) ? typesOrType : [typesOrType];
+            const typeLabels = {
+                'pending_ok': 'ожидающие проверки',
+                'auto_ready': 'готовые к публикации',
+                'published': 'опубликованные',
+                'rejected': 'отклоненные',
+            };
+            const label = types.map(t => typeLabels[t] || t).join(', ');
+            if (!confirm(`Удалить все ${label} записи?`)) return;
             setClearing(true);
             try {
                 const result = await api.post('/queue/clear-all', { types });
                 toasts.success(result.message || 'Очередь очищена');
                 loadData();
             } catch (e) {
-                toasts.error('Ошибка очистки');
+                toasts.error('Ошибка очистки: ' + (e.message || 'неизвестная ошибка'));
             }
             setClearing(false);
         };
@@ -661,10 +673,14 @@
                     break;
                 case 'publish':
                     try {
-                        await api.post(`/drafts/${draft.id}/publish`, { channels: ['wordpress', 'telegram'] });
-                        toasts.success('Опубликовано!');
+                        const publishResult = await api.post(`/drafts/${draft.id}/publish`, { channels: ['wordpress', 'telegram'] });
+                        if (publishResult.success) {
+                            toasts.success('Опубликовано!');
+                        } else {
+                            toasts.error('Ошибка публикации: ' + (publishResult.error || 'неизвестная ошибка'));
+                        }
                         loadData();
-                    } catch (e) { toasts.error('Ошибка: ' + e.message); }
+                    } catch (e) { toasts.error('Ошибка: ' + (e.message || 'не удалось опубликовать')); }
                     break;
             }
         };
@@ -687,7 +703,7 @@
                     h('button', { className: 'aincc-btn aincc-btn-secondary', onClick: loadData }, Icons.refresh, ' Обновить')
                 )
             ),
-            h(DashboardStats, { stats }),
+            h(DashboardStats, { stats, onClear: handleClearQueue }),
             h('div', { className: 'aincc-filters' },
                 filters.map(f =>
                     h('div', { key: f.id, style: { display: 'flex', alignItems: 'center', gap: 4 } },
