@@ -257,7 +257,9 @@ End articles with practical next steps when relevant:
 
 Write in {$config['name']} ({$config['native_name']}).
 
-Structure your output EXACTLY as:
+IMPORTANT: Output ONLY the article text. Do NOT use JSON format. Do NOT wrap in code blocks.
+
+Structure your output EXACTLY as follows (use these exact XML-like tags):
 
 <title>[Compelling headline, 8-12 words]</title>
 
@@ -272,6 +274,8 @@ Structure your output EXACTLY as:
 
 [End with practical information or next steps if applicable]
 </body>
+
+NEVER output JSON like {"title":..., "body":...}. Use ONLY the <title>, <lead>, <body> tags above.
 
 {$style_hints}
 
@@ -360,10 +364,11 @@ Translate from {$source['name']} ({$source['native']}) to {$target['name']} ({$t
 - Currency: Keep EUR/€
 
 ## 3. PRESERVE STRUCTURE
-- Keep HTML tags exactly as they are
+- Keep HTML tags exactly as they are (<p>, <h2>, <ul>, <li>, etc.)
 - Maintain paragraph breaks
 - Preserve bullet points and lists
 - Keep <title>, <lead>, <body> tags if present
+- NEVER convert to JSON format - keep the same structure as input
 
 ## 4. DO NOT TRANSLATE
 - URLs and links

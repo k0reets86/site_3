@@ -1190,14 +1190,26 @@ class AINCC_REST_API {
      * Search images
      */
     public function search_images($request) {
-        $image_handler = new AINCC_Image_Handler();
-
-        // Search multiple images
+        // Check if Pexels API key is configured
         $api_key = AINCC_Settings::get('pexels_api_key');
+        if (empty($api_key)) {
+            return new WP_REST_Response([
+                'success' => false,
+                'error' => 'Pexels API ключ не настроен. Проверьте настройки плагина.',
+            ], 400);
+        }
+
+        $query = $request->get_param('query');
+        if (empty($query)) {
+            return new WP_REST_Response([
+                'success' => false,
+                'error' => 'Введите поисковый запрос',
+            ], 400);
+        }
 
         $url = add_query_arg([
-            'query' => urlencode($request->get_param('query')),
-            'per_page' => $request->get_param('per_page'),
+            'query' => urlencode($query),
+            'per_page' => $request->get_param('per_page') ?: 8,
             'orientation' => 'landscape',
         ], 'https://api.pexels.com/v1/search');
 
@@ -1207,7 +1219,32 @@ class AINCC_REST_API {
         ]);
 
         if (is_wp_error($response)) {
-            return new WP_REST_Response(['success' => false, 'error' => 'API error'], 400);
+            AINCC_Logger::error('Pexels API error', ['error' => $response->get_error_message()]);
+            return new WP_REST_Response([
+                'success' => false,
+                'error' => 'Ошибка подключения к Pexels: ' . $response->get_error_message(),
+            ], 400);
+        }
+
+        $status_code = wp_remote_retrieve_response_code($response);
+        if ($status_code !== 200) {
+            AINCC_Logger::error('Pexels API HTTP error', ['status' => $status_code]);
+            if ($status_code === 401) {
+                return new WP_REST_Response([
+                    'success' => false,
+                    'error' => 'Неверный Pexels API ключ. Проверьте настройки.',
+                ], 400);
+            }
+            if ($status_code === 429) {
+                return new WP_REST_Response([
+                    'success' => false,
+                    'error' => 'Превышен лимит запросов к Pexels. Попробуйте позже.',
+                ], 429);
+            }
+            return new WP_REST_Response([
+                'success' => false,
+                'error' => 'Ошибка Pexels API (код: ' . $status_code . ')',
+            ], 400);
         }
 
         $body = json_decode(wp_remote_retrieve_body($response), true);
@@ -1227,7 +1264,15 @@ class AINCC_REST_API {
             }
         }
 
-        return new WP_REST_Response(['items' => $images], 200);
+        if (empty($images)) {
+            return new WP_REST_Response([
+                'success' => true,
+                'items' => [],
+                'message' => 'По запросу "' . $query . '" ничего не найдено',
+            ], 200);
+        }
+
+        return new WP_REST_Response(['success' => true, 'items' => $images], 200);
     }
 
     /**
