@@ -363,6 +363,17 @@
     color: white;
 }
 
+.aincc-btn-icon.aincc-btn-danger {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 6px;
+}
+
+.aincc-btn-icon.aincc-btn-danger:hover {
+    background: #ef4444;
+    color: white;
+}
+
 /* Article card */
 .aincc-article-title {
     font-weight: 500;

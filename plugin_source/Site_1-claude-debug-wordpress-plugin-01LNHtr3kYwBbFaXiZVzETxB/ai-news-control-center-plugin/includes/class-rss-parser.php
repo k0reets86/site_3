@@ -27,23 +27,28 @@ class AINCC_RSS_Parser {
 
     /**
      * Fetch all sources that are due
+     * @param bool $force If true, fetch all enabled sources ignoring time interval
+     * @return array Results with fetched count and errors
      */
-    public function fetch_all_sources() {
-        AINCC_Logger::info('Starting RSS fetch cycle');
+    public function fetch_all_sources($force = false) {
+        AINCC_Logger::info('Starting RSS fetch cycle', ['force' => $force]);
 
-        $sources = $this->db->get_sources_to_fetch();
+        $sources = $this->db->get_sources_to_fetch(20, $force);
 
         if (empty($sources)) {
             AINCC_Logger::debug('No sources to fetch');
-            return;
+            return ['success' => true, 'fetched' => 0, 'message' => 'Нет источников для загрузки'];
         }
 
         $total_new = 0;
+        $sources_fetched = 0;
+        $errors = [];
 
         foreach ($sources as $source) {
             try {
                 $result = $this->fetch_source($source);
                 $total_new += $result['new_count'] ?? 0;
+                $sources_fetched++;
 
                 AINCC_Logger::debug("Fetched source: {$source['name']}", [
                     'new_items' => $result['new_count'] ?? 0,
@@ -54,12 +59,20 @@ class AINCC_RSS_Parser {
                 AINCC_Logger::error("Error fetching {$source['name']}", [
                     'error' => $e->getMessage(),
                 ]);
-
+                $errors[] = $source['name'] . ': ' . $e->getMessage();
                 $this->db->update_source_fetched($source['id'], $e->getMessage());
             }
         }
 
-        AINCC_Logger::info("RSS fetch cycle complete", ['new_items' => $total_new]);
+        AINCC_Logger::info("RSS fetch cycle complete", ['new_items' => $total_new, 'sources' => $sources_fetched]);
+
+        return [
+            'success' => true,
+            'fetched' => $total_new,
+            'sources_processed' => $sources_fetched,
+            'errors' => $errors,
+            'message' => "Загружено {$total_new} новых статей из {$sources_fetched} источников",
+        ];
     }
 
     /**
