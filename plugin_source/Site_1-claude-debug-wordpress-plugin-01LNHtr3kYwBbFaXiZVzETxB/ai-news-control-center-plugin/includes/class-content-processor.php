@@ -451,61 +451,245 @@ class AINCC_Content_Processor {
 
     /**
      * Parse AI-generated content
+     * Handles both HTML format (<title>/<lead>/<body>) and JSON format
      */
     private function parse_generated_content($content, $language) {
         $result = [
             'title' => '',
             'lead' => '',
-            'body' => $content,
+            'body' => '',
             'sections' => [],
         ];
 
+        // First, check if content is JSON format
+        $trimmed = trim($content);
+
+        // Try to detect and parse JSON response
+        if ((strpos($trimmed, '{') === 0 || strpos($trimmed, '```json') !== false || strpos($trimmed, '```') !== false)) {
+            // Extract JSON from markdown code blocks if present
+            if (preg_match('/```(?:json)?\s*([\s\S]*?)\s*```/', $trimmed, $jsonMatches)) {
+                $jsonStr = trim($jsonMatches[1]);
+            } else {
+                // Try to find JSON object
+                if (preg_match('/\{[\s\S]*\}/', $trimmed, $jsonMatches)) {
+                    $jsonStr = $jsonMatches[0];
+                } else {
+                    $jsonStr = $trimmed;
+                }
+            }
+
+            $parsed = json_decode($jsonStr, true);
+
+            if ($parsed && is_array($parsed)) {
+                AINCC_Logger::debug('Parsed AI response as JSON', ['keys' => array_keys($parsed)]);
+
+                // Extract title - try various possible keys
+                $titleKeys = ['title', 'headline', 'заголовок', 'заголовок_статті', 'Заголовок'];
+                foreach ($titleKeys as $key) {
+                    if (!empty($parsed[$key])) {
+                        $result['title'] = $this->clean_text($parsed[$key]);
+                        break;
+                    }
+                }
+
+                // Extract lead/excerpt - try various possible keys
+                $leadKeys = ['lead', 'dek', 'excerpt', 'summary', 'description', 'отрывок', 'лід', 'вступ', 'введение', 'Лид', 'Отрывок'];
+                foreach ($leadKeys as $key) {
+                    if (!empty($parsed[$key])) {
+                        $result['lead'] = $this->clean_text($parsed[$key]);
+                        break;
+                    }
+                }
+
+                // Extract body - try various possible keys
+                $bodyKeys = ['body', 'body_html', 'content', 'text', 'article', 'тело', 'текст', 'содержание', 'зміст', 'Текст'];
+                foreach ($bodyKeys as $key) {
+                    if (!empty($parsed[$key])) {
+                        $result['body'] = $this->clean_html($parsed[$key]);
+                        break;
+                    }
+                }
+
+                // If body is still empty but we have other content, build it from available data
+                if (empty($result['body'])) {
+                    // Try to build body from paragraphs array
+                    if (!empty($parsed['paragraphs']) && is_array($parsed['paragraphs'])) {
+                        $result['body'] = '<p>' . implode('</p><p>', array_map([$this, 'clean_text'], $parsed['paragraphs'])) . '</p>';
+                    }
+                    // Or from sections
+                    elseif (!empty($parsed['sections']) && is_array($parsed['sections'])) {
+                        $bodyParts = [];
+                        foreach ($parsed['sections'] as $section) {
+                            if (is_string($section)) {
+                                $bodyParts[] = '<p>' . $this->clean_text($section) . '</p>';
+                            } elseif (is_array($section)) {
+                                if (!empty($section['title'])) {
+                                    $bodyParts[] = '<h2>' . $this->clean_text($section['title']) . '</h2>';
+                                }
+                                if (!empty($section['content'])) {
+                                    $bodyParts[] = '<p>' . $this->clean_text($section['content']) . '</p>';
+                                }
+                            }
+                        }
+                        $result['body'] = implode("\n", $bodyParts);
+                    }
+                }
+
+                // Extract sections if available
+                if (!empty($parsed['what'])) {
+                    $result['sections']['what'] = $this->clean_text($parsed['what']);
+                }
+                if (!empty($parsed['why'])) {
+                    $result['sections']['why'] = $this->clean_text($parsed['why']);
+                }
+                if (!empty($parsed['action'])) {
+                    $result['sections']['action'] = $this->clean_text($parsed['action']);
+                }
+
+                // If we successfully parsed JSON, return the result
+                if (!empty($result['title']) || !empty($result['body'])) {
+                    AINCC_Logger::debug('Successfully parsed JSON content', [
+                        'has_title' => !empty($result['title']),
+                        'has_lead' => !empty($result['lead']),
+                        'has_body' => !empty($result['body']),
+                    ]);
+                    return $result;
+                }
+            }
+        }
+
+        // Fall back to HTML/XML tag parsing
+        $workingContent = $content;
+
         // Try to extract title
-        if (preg_match('/<title>(.*?)<\/title>/is', $content, $matches)) {
-            $result['title'] = trim(strip_tags($matches[1]));
-            $content = str_replace($matches[0], '', $content);
+        if (preg_match('/<title>(.*?)<\/title>/is', $workingContent, $matches)) {
+            $result['title'] = $this->clean_text($matches[1]);
+            $workingContent = str_replace($matches[0], '', $workingContent);
         }
 
         // Try to extract lead
-        if (preg_match('/<lead>(.*?)<\/lead>/is', $content, $matches)) {
-            $result['lead'] = trim(strip_tags($matches[1]));
-            $content = str_replace($matches[0], '', $content);
+        if (preg_match('/<lead>(.*?)<\/lead>/is', $workingContent, $matches)) {
+            $result['lead'] = $this->clean_text($matches[1]);
+            $workingContent = str_replace($matches[0], '', $workingContent);
+        }
+
+        // Try to extract body tag
+        if (preg_match('/<body>(.*?)<\/body>/is', $workingContent, $matches)) {
+            $result['body'] = $this->clean_html($matches[1]);
+            $workingContent = str_replace($matches[0], '', $workingContent);
         }
 
         // Extract sections
-        if (preg_match('/<section[^>]*id="what"[^>]*>(.*?)<\/section>/is', $content, $matches)) {
+        if (preg_match('/<section[^>]*id="what"[^>]*>(.*?)<\/section>/is', $workingContent, $matches)) {
             $result['sections']['what'] = trim($matches[1]);
         }
-        if (preg_match('/<section[^>]*id="why"[^>]*>(.*?)<\/section>/is', $content, $matches)) {
+        if (preg_match('/<section[^>]*id="why"[^>]*>(.*?)<\/section>/is', $workingContent, $matches)) {
             $result['sections']['why'] = trim($matches[1]);
         }
-        if (preg_match('/<section[^>]*id="action"[^>]*>(.*?)<\/section>/is', $content, $matches)) {
+        if (preg_match('/<section[^>]*id="action"[^>]*>(.*?)<\/section>/is', $workingContent, $matches)) {
             $result['sections']['action'] = trim($matches[1]);
         }
 
-        // Clean remaining content for body
-        $result['body'] = trim($content);
+        // If we still don't have body, use the remaining content
+        if (empty($result['body'])) {
+            $result['body'] = $this->clean_html($workingContent);
+        }
 
-        // If no title was extracted, try to get first line
+        // If no title was extracted, try to get first line or heading
         if (empty($result['title'])) {
-            $lines = explode("\n", strip_tags($content));
-            foreach ($lines as $line) {
-                $line = trim($line);
-                if (!empty($line) && strlen($line) < 100) {
-                    $result['title'] = $line;
-                    break;
+            // Try h1
+            if (preg_match('/<h1[^>]*>(.*?)<\/h1>/is', $content, $matches)) {
+                $result['title'] = $this->clean_text($matches[1]);
+            } else {
+                // Get first non-empty line
+                $lines = explode("\n", strip_tags($content));
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    // Skip JSON-like lines
+                    if (!empty($line) && strlen($line) < 150 && strpos($line, '{') !== 0 && strpos($line, '"') !== 0) {
+                        $result['title'] = $line;
+                        break;
+                    }
                 }
             }
         }
 
         // If no lead, get first paragraph
         if (empty($result['lead'])) {
-            if (preg_match('/<p>(.*?)<\/p>/is', $content, $matches)) {
-                $result['lead'] = trim(strip_tags($matches[1]));
+            if (preg_match('/<p[^>]*>(.*?)<\/p>/is', $result['body'], $matches)) {
+                $result['lead'] = $this->clean_text($matches[1]);
             }
         }
 
         return $result;
+    }
+
+    /**
+     * Clean text content - remove HTML, extra whitespace, quotes
+     */
+    private function clean_text($text) {
+        if (!is_string($text)) {
+            return '';
+        }
+        $text = strip_tags($text);
+        $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+        $text = preg_replace('/\s+/', ' ', $text);
+        return trim($text);
+    }
+
+    /**
+     * Clean HTML content - allow safe tags, normalize whitespace
+     */
+    private function clean_html($html) {
+        if (!is_string($html)) {
+            return '';
+        }
+
+        // Decode entities first
+        $html = html_entity_decode($html, ENT_QUOTES, 'UTF-8');
+
+        // Convert escaped newlines to actual newlines
+        $html = str_replace(['\\n', '\n'], "\n", $html);
+
+        // If there are no HTML tags, wrap paragraphs
+        if (strip_tags($html) === $html) {
+            // Split by double newlines for paragraphs
+            $paragraphs = preg_split('/\n\s*\n/', $html);
+            $paragraphs = array_filter(array_map('trim', $paragraphs));
+            if (count($paragraphs) > 1) {
+                $html = '<p>' . implode('</p><p>', $paragraphs) . '</p>';
+            } elseif (count($paragraphs) === 1) {
+                // Single paragraph
+                $lines = explode("\n", trim($paragraphs[0]));
+                if (count($lines) > 1) {
+                    $html = '<p>' . implode('</p><p>', array_filter(array_map('trim', $lines))) . '</p>';
+                } else {
+                    $html = '<p>' . trim($paragraphs[0]) . '</p>';
+                }
+            }
+        }
+
+        // Allow safe HTML tags
+        $html = wp_kses($html, [
+            'p' => [],
+            'br' => [],
+            'strong' => [],
+            'b' => [],
+            'em' => [],
+            'i' => [],
+            'u' => [],
+            'h1' => [],
+            'h2' => [],
+            'h3' => [],
+            'h4' => [],
+            'ul' => [],
+            'ol' => [],
+            'li' => [],
+            'a' => ['href' => [], 'target' => [], 'rel' => []],
+            'blockquote' => [],
+        ]);
+
+        return trim($html);
     }
 
     /**
