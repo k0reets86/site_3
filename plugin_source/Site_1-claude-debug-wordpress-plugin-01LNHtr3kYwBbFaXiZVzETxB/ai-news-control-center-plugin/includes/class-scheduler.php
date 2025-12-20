@@ -84,23 +84,20 @@ class AINCC_Scheduler {
 
     /**
      * Fetch sources from RSS feeds
+     * @param bool $force If true, fetch all sources ignoring time interval (for manual triggers)
      */
-    public function fetch_sources(): array {
+    public function fetch_sources(bool $force = false): array {
         $job = 'fetch_sources';
         $result = ['success' => false, 'fetched' => 0, 'errors' => [], 'sources_processed' => 0];
 
         if (!$this->acquire_lock($job)) {
-            $result['error'] = 'Job already running';
+            $result['error'] = 'Задача уже выполняется. Попробуйте через несколько минут.';
             return $result;
         }
 
         try {
-            $start_time = time();
-            $batch_size = (int) AINCC_Settings::get('batch_size', 5);
-
             // Get RSS parser - ensure it's loaded
             $rss_parser = aincc_get('rss_parser');
-            $db = aincc_get('database');
 
             if (!$rss_parser) {
                 // Try to load directly
@@ -110,98 +107,22 @@ class AINCC_Scheduler {
                 $rss_parser = new AINCC_RSS_Parser();
             }
 
-            if (!$db) {
-                if (!class_exists('AINCC_Database')) {
-                    require_once AINCC_PLUGIN_DIR . 'includes/class-database.php';
-                }
-                $db = new AINCC_Database();
+            // Use the RSS parser's fetch_all_sources which now returns results
+            $fetch_result = $rss_parser->fetch_all_sources($force);
+
+            $this->release_lock($job);
+
+            if (is_array($fetch_result)) {
+                return array_merge(['success' => true], $fetch_result);
             }
 
-            // Get sources to fetch
-            $sources = $db->get_sources_to_fetch($batch_size);
-
-            if (empty($sources)) {
-                $result['success'] = true;
-                $result['message'] = 'No sources to fetch';
-                AINCC_Logger::info('No sources ready to fetch');
-                $this->release_lock($job);
-                return $result;
-            }
-
-            $fetched = 0;
-            $sources_processed = 0;
-
-            foreach ($sources as $source) {
-                // Check time limit
-                if ((time() - $start_time) > $this->max_execution_time) {
-                    AINCC_Logger::warning('Fetch timeout reached', [
-                        'processed' => $fetched
-                    ]);
-                    break;
-                }
-
-                // Check memory
-                if (!$this->has_memory_available()) {
-                    AINCC_Logger::warning('Memory limit approaching', [
-                        'processed' => $fetched
-                    ]);
-                    break;
-                }
-
-                try {
-                    // fetch_source returns ['new_count' => X, 'total_count' => Y, 'duration' => Z]
-                    $fetch_result = $rss_parser->fetch_source($source);
-
-                    // Extract new articles count from result
-                    if (is_array($fetch_result) && isset($fetch_result['new_count'])) {
-                        $fetched += (int) $fetch_result['new_count'];
-                    } elseif (is_array($fetch_result)) {
-                        // Fallback: count array items if it's direct articles array
-                        $fetched += count($fetch_result);
-                    }
-
-                    $sources_processed++;
-
-                    // Update last fetch time
-                    $db->update_source_fetch_time($source['id']);
-
-                    AINCC_Logger::debug("Fetched from source", [
-                        'source' => $source['name'],
-                        'new_articles' => $fetch_result['new_count'] ?? 0,
-                        'total_found' => $fetch_result['total_count'] ?? 0
-                    ]);
-
-                } catch (Throwable $e) {
-                    $result['errors'][] = [
-                        'source' => $source['name'] ?? 'unknown',
-                        'error' => $e->getMessage()
-                    ];
-                    AINCC_Logger::error("Failed to fetch source", [
-                        'source' => $source['name'] ?? 'unknown',
-                        'error' => $e->getMessage()
-                    ]);
-
-                    // Mark source error in DB
-                    $db->update_source_fetched($source['id'], $e->getMessage());
-                }
-            }
-
-            $result['success'] = true;
-            $result['fetched'] = $fetched;
-            $result['sources_processed'] = $sources_processed;
-
-            AINCC_Logger::info('Fetch completed', $result);
+            return ['success' => true, 'message' => 'Сбор завершен'];
 
         } catch (Throwable $e) {
-            $result['error'] = $e->getMessage();
-            AINCC_Logger::error('Fetch failed', [
-                'error' => $e->getMessage()
-            ]);
-        } finally {
+            AINCC_Logger::error('Fetch sources failed', ['error' => $e->getMessage()]);
             $this->release_lock($job);
+            return ['success' => false, 'error' => $e->getMessage()];
         }
-
-        return $result;
     }
 
     /**
@@ -575,7 +496,11 @@ class AINCC_Scheduler {
             }
         }
 
-        // Call the method directly instead of do_action for better control
+        // Call the method directly - use force=true for fetch_sources to ignore time intervals
+        if ($method === 'fetch_sources') {
+            return $this->fetch_sources(true); // Force fetch all sources for manual triggers
+        }
+
         return $this->$method();
     }
 

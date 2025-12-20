@@ -971,8 +971,25 @@ class AINCC_Database {
 
     /**
      * Get sources due for fetching
+     * @param int $limit Max sources to return
+     * @param bool $force If true, ignore fetch_interval and return all enabled sources
      */
-    public function get_sources_to_fetch($limit = 10) {
+    public function get_sources_to_fetch($limit = 10, $force = false) {
+        if ($force) {
+            // Force mode: get all enabled sources ignoring fetch interval
+            return $this->wpdb->get_results(
+                $this->wpdb->prepare(
+                    "SELECT * FROM {$this->table('sources')}
+                     WHERE enabled = 1
+                     AND (quarantine_until IS NULL OR quarantine_until < NOW())
+                     ORDER BY last_fetched_at ASC NULLS FIRST
+                     LIMIT %d",
+                    $limit
+                ),
+                ARRAY_A
+            );
+        }
+
         return $this->wpdb->get_results(
             $this->wpdb->prepare(
                 "SELECT * FROM {$this->table('sources')}
