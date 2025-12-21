@@ -1096,7 +1096,12 @@ class AINCC_Database {
      * Insert draft with duplicate check
      */
     public function insert_draft($data) {
-        // Check for duplicate draft (same raw_item_id + lang, or same title + lang in last 24h)
+        // Generate ID if not provided
+        if (empty($data['id'])) {
+            $data['id'] = wp_generate_uuid4();
+        }
+
+        // Check for duplicate draft (same raw_item_id + lang) - only for RSS items
         if (!empty($data['raw_item_id']) && !empty($data['lang'])) {
             $exists = $this->wpdb->get_var(
                 $this->wpdb->prepare(
@@ -1115,28 +1120,19 @@ class AINCC_Database {
             }
         }
 
-        // Also check for title duplicates (manual articles)
-        if (!empty($data['title']) && !empty($data['lang'])) {
-            $title_exists = $this->wpdb->get_var(
-                $this->wpdb->prepare(
-                    "SELECT id FROM {$this->table('drafts')}
-                     WHERE title = %s AND lang = %s
-                     AND created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)",
-                    $data['title'],
-                    $data['lang']
-                )
-            );
-            if ($title_exists) {
-                AINCC_Logger::debug('Duplicate draft skipped (same title)', [
-                    'title' => $data['title'],
-                    'lang' => $data['lang'],
-                ]);
-                return false;
-            }
+        // Insert the draft
+        $result = $this->wpdb->insert($this->table('drafts'), $data);
+
+        if ($result === false) {
+            AINCC_Logger::error('Failed to insert draft', [
+                'error' => $this->wpdb->last_error,
+                'data_keys' => array_keys($data),
+            ]);
+            return false;
         }
 
-        $this->wpdb->insert($this->table('drafts'), $data);
-        return $this->wpdb->insert_id ? $data['id'] : false;
+        AINCC_Logger::debug('Draft inserted successfully', ['id' => $data['id']]);
+        return $data['id'];
     }
 
     /**
