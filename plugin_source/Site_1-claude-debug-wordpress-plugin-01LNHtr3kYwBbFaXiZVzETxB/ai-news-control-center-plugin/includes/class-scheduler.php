@@ -143,53 +143,63 @@ class AINCC_Scheduler {
 
     /**
      * Process content queue (AI processing)
+     * Delegates to content_processor which handles raw_item_id correctly
      */
     public function process_queue(): array {
         $job = 'process_queue';
         $result = ['success' => false, 'processed' => 0, 'errors' => []];
 
+        AINCC_Logger::info('Scheduler: process_queue called');
+
         if (!$this->acquire_lock($job)) {
-            $result['error'] = 'Job already running';
+            AINCC_Logger::warning('Scheduler: lock not acquired for process_queue');
+            $result['error'] = 'Обработка уже выполняется';
             return $result;
         }
 
         try {
+            // Get or create content processor
+            $processor = aincc_get('content_processor');
+
+            if (!$processor) {
+                AINCC_Logger::debug('Scheduler: Content processor not in container, loading directly');
+                if (!class_exists('AINCC_Content_Processor')) {
+                    require_once AINCC_PLUGIN_DIR . 'includes/class-content-processor.php';
+                }
+                $processor = new AINCC_Content_Processor();
+            }
+
+            // Delegate to content processor's process_queue which handles raw_item_id
+            // But call process_item directly for each queue item to track results
+            $db = new AINCC_Database();
             $start_time = time();
             $batch_size = (int) AINCC_Settings::get('batch_size', 5);
-
-            // Get content processor
-            $processor = aincc_get('content_processor');
-            $db = aincc_get('database');
-
-            if (!$processor || !$db) {
-                throw new Exception('Required components not available');
-            }
-
-            // Get pending articles from queue
-            $queue_items = $db->get_queue_items('pending', $batch_size);
-
-            if (empty($queue_items)) {
-                $result['success'] = true;
-                $result['message'] = 'Queue is empty';
-                return $result;
-            }
-
             $processed = 0;
 
+            // Get pending items
+            $queue_items = $db->get_queue_items('pending', $batch_size);
+
+            AINCC_Logger::info('Scheduler: queue items found', ['count' => count($queue_items)]);
+
+            if (empty($queue_items)) {
+                $this->release_lock($job);
+                return [
+                    'success' => true,
+                    'processed' => 0,
+                    'message' => 'Очередь пуста. Сначала соберите новости.',
+                ];
+            }
+
             foreach ($queue_items as $item) {
-                // Check time limit (AI processing can be slow)
+                // Check time limit
                 if ((time() - $start_time) > ($this->max_execution_time - 30)) {
-                    AINCC_Logger::warning('Process timeout approaching', [
-                        'processed' => $processed
-                    ]);
+                    AINCC_Logger::warning('Process timeout approaching', ['processed' => $processed]);
                     break;
                 }
 
                 // Check memory
                 if (!$this->has_memory_available()) {
-                    AINCC_Logger::warning('Memory limit approaching', [
-                        'processed' => $processed
-                    ]);
+                    AINCC_Logger::warning('Memory limit approaching', ['processed' => $processed]);
                     break;
                 }
 
@@ -197,42 +207,63 @@ class AINCC_Scheduler {
                     // Mark as processing
                     $db->update_queue_status($item->id, 'processing');
 
-                    // Process the article
-                    $process_result = $processor->process_article($item->article_id);
+                    // Get the raw_item_id from queue item (RSS items use raw_item_id, manual uses article_id)
+                    $raw_item_id = $item->raw_item_id ?? null;
+                    $article_id = $item->article_id ?? null;
 
-                    if ($process_result) {
+                    AINCC_Logger::debug('Processing queue item', [
+                        'queue_id' => $item->id,
+                        'raw_item_id' => $raw_item_id,
+                        'article_id' => $article_id,
+                        'job_type' => $item->job_type ?? 'unknown',
+                    ]);
+
+                    if ($raw_item_id) {
+                        // RSS item - use process_item
+                        $process_result = $processor->process_item($raw_item_id);
                         $db->update_queue_status($item->id, 'completed');
                         $processed++;
+                        AINCC_Logger::info("Processed raw item", ['raw_item_id' => $raw_item_id, 'result' => $process_result]);
+                    } elseif ($article_id) {
+                        // Manual article
+                        $process_result = $processor->process_article($article_id);
+                        if ($process_result) {
+                            $db->update_queue_status($item->id, 'completed');
+                            $processed++;
+                        } else {
+                            $db->update_queue_status($item->id, 'failed', 'Processing returned false');
+                            $result['errors'][] = ['article_id' => $article_id, 'error' => 'Processing failed'];
+                        }
                     } else {
-                        $db->update_queue_status($item->id, 'failed');
-                        $result['errors'][] = [
-                            'article_id' => $item->article_id,
-                            'error' => 'Processing returned false'
-                        ];
+                        AINCC_Logger::error('Queue item has no raw_item_id or article_id', ['item' => $item]);
+                        $db->update_queue_status($item->id, 'failed', 'No item ID in payload');
+                        $result['errors'][] = ['queue_id' => $item->id, 'error' => 'No item ID'];
                     }
 
                 } catch (Throwable $e) {
                     $db->update_queue_status($item->id, 'failed', $e->getMessage());
                     $result['errors'][] = [
-                        'article_id' => $item->article_id,
-                        'error' => $e->getMessage()
+                        'queue_id' => $item->id,
+                        'error' => $e->getMessage(),
                     ];
-                    AINCC_Logger::error("Failed to process article", [
-                        'article_id' => $item->article_id,
-                        'error' => $e->getMessage()
+                    AINCC_Logger::error("Failed to process queue item", [
+                        'queue_id' => $item->id,
+                        'error' => $e->getMessage(),
                     ]);
                 }
             }
 
             $result['success'] = true;
             $result['processed'] = $processed;
+            $result['message'] = "Обработано {$processed} элементов";
 
             AINCC_Logger::info('Queue processing completed', $result);
 
         } catch (Throwable $e) {
             $result['error'] = $e->getMessage();
             AINCC_Logger::error('Queue processing failed', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
         } finally {
             $this->release_lock($job);

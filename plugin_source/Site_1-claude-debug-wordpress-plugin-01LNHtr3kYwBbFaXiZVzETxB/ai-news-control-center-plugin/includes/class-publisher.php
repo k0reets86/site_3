@@ -50,6 +50,67 @@ class AINCC_Publisher {
             ];
         }
 
+        // CRITICAL: Prevent duplicate publishing
+        // Check 1: Draft already has status 'published'
+        if ($draft['status'] === 'published') {
+            AINCC_Logger::warning('Duplicate publish attempt blocked - draft already published', [
+                'draft_id' => $draft_id,
+                'wp_post_id' => $draft['wp_post_id'] ?? null,
+            ]);
+            return [
+                'success' => true,
+                'post_id' => $draft['wp_post_id'],
+                'url' => $draft['wp_post_id'] ? get_permalink($draft['wp_post_id']) : '',
+                'message' => 'Статья уже была опубликована',
+            ];
+        }
+
+        // Check 2: Use transient lock to prevent race condition (multiple rapid clicks)
+        $lock_key = 'aincc_publish_lock_' . $draft_id;
+        if (get_transient($lock_key)) {
+            AINCC_Logger::warning('Duplicate publish attempt blocked - publish in progress', [
+                'draft_id' => $draft_id,
+            ]);
+            return [
+                'success' => false,
+                'error' => 'Публикация уже выполняется. Подождите.',
+            ];
+        }
+        // Set lock for 60 seconds
+        set_transient($lock_key, time(), 60);
+
+        // Check 3: Check if WordPress post already exists for this draft
+        global $wpdb;
+        $existing_post = $wpdb->get_var($wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts} p
+             INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+             WHERE pm.meta_key = '_aincc_draft_id' AND pm.meta_value = %s
+             AND p.post_status IN ('publish', 'draft', 'pending')
+             LIMIT 1",
+            $draft_id
+        ));
+
+        if ($existing_post) {
+            delete_transient($lock_key);
+            AINCC_Logger::warning('Duplicate publish blocked - WP post already exists', [
+                'draft_id' => $draft_id,
+                'existing_post_id' => $existing_post,
+            ]);
+
+            // Update draft status to match reality
+            $this->db->update_draft($draft_id, [
+                'status' => 'published',
+                'wp_post_id' => $existing_post,
+            ]);
+
+            return [
+                'success' => true,
+                'post_id' => $existing_post,
+                'url' => get_permalink($existing_post),
+                'message' => 'Статья уже была опубликована',
+            ];
+        }
+
         // Prepare post data
         $post_data = [
             'post_title' => $draft['title'],
@@ -90,6 +151,9 @@ class AINCC_Publisher {
         $post_id = wp_insert_post($post_data, true);
 
         if (is_wp_error($post_id)) {
+            // Release lock on error
+            delete_transient($lock_key);
+
             AINCC_Logger::error('Failed to create WordPress post', [
                 'draft_id' => $draft_id,
                 'error' => $post_id->get_error_message(),
@@ -144,6 +208,9 @@ class AINCC_Publisher {
             'post_id' => $post_id,
             'url' => $post_url,
         ]);
+
+        // Release the publish lock
+        delete_transient($lock_key);
 
         return [
             'success' => true,

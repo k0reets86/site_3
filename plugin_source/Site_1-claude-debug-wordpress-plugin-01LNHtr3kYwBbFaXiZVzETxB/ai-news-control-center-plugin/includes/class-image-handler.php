@@ -225,11 +225,25 @@ class AINCC_Image_Handler {
      */
     public function save_to_media_library($image_data, $post_id = 0) {
         if (empty($image_data['url'])) {
+            AINCC_Logger::warning('save_to_media_library called without URL');
             return false;
         }
 
-        // Download image
-        $temp_file = download_url($image_data['url']);
+        // CRITICAL: Load required WordPress files for media handling
+        // These are only auto-loaded in admin context, but we may be called from cron or REST API
+        if (!function_exists('media_handle_sideload')) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            require_once ABSPATH . 'wp-admin/includes/media.php';
+            require_once ABSPATH . 'wp-admin/includes/image.php';
+        }
+
+        AINCC_Logger::debug('Downloading image to media library', [
+            'url' => $image_data['url'],
+            'post_id' => $post_id,
+        ]);
+
+        // Download image with extended timeout for Pexels
+        $temp_file = download_url($image_data['url'], 60);
 
         if (is_wp_error($temp_file)) {
             AINCC_Logger::error('Failed to download image', [
