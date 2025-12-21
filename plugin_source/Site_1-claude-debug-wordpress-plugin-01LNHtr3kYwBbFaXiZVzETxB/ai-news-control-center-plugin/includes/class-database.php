@@ -977,32 +977,57 @@ class AINCC_Database {
     public function get_sources_to_fetch($limit = 10, $force = false) {
         if ($force) {
             // Force mode: get all enabled sources ignoring fetch interval
-            return $this->wpdb->get_results(
+            // Using ISNULL() to put NULL values first (MySQL compatible)
+            $results = $this->wpdb->get_results(
                 $this->wpdb->prepare(
                     "SELECT * FROM {$this->table('sources')}
                      WHERE enabled = 1
                      AND (quarantine_until IS NULL OR quarantine_until < NOW())
-                     ORDER BY last_fetched_at ASC NULLS FIRST
+                     ORDER BY ISNULL(last_fetched_at) DESC, last_fetched_at ASC
                      LIMIT %d",
                     $limit
                 ),
                 ARRAY_A
             );
+
+            // Log for debugging
+            if ($results === false) {
+                AINCC_Logger::error('SQL error in get_sources_to_fetch (force)', [
+                    'error' => $this->wpdb->last_error,
+                ]);
+                return [];
+            }
+
+            AINCC_Logger::debug('get_sources_to_fetch (force)', [
+                'count' => count($results),
+                'limit' => $limit,
+            ]);
+
+            return $results ?: [];
         }
 
-        return $this->wpdb->get_results(
+        $results = $this->wpdb->get_results(
             $this->wpdb->prepare(
                 "SELECT * FROM {$this->table('sources')}
                  WHERE enabled = 1
                  AND (quarantine_until IS NULL OR quarantine_until < NOW())
                  AND (last_fetched_at IS NULL
                       OR TIMESTAMPDIFF(MINUTE, last_fetched_at, NOW()) >= fetch_interval)
-                 ORDER BY last_fetched_at ASC
+                 ORDER BY ISNULL(last_fetched_at) DESC, last_fetched_at ASC
                  LIMIT %d",
                 $limit
             ),
             ARRAY_A
         );
+
+        if ($results === false) {
+            AINCC_Logger::error('SQL error in get_sources_to_fetch', [
+                'error' => $this->wpdb->last_error,
+            ]);
+            return [];
+        }
+
+        return $results ?: [];
     }
 
     /**

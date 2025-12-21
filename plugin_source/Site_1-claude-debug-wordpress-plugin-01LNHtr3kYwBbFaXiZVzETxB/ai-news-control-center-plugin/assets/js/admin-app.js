@@ -615,11 +615,28 @@
         const handleFetchNow = async () => {
             setFetching(true);
             try {
-                await api.post('/system/cron/trigger', { hook: 'aincc_fetch_sources' });
-                toasts.success('Сбор новостей запущен!');
-                setTimeout(loadData, 3000);
+                const result = await api.post('/system/cron/trigger', { hook: 'aincc_fetch_sources' });
+                console.log('Fetch result:', result);
+
+                if (result.success) {
+                    const msg = result.message || `Загружено ${result.fetched || 0} статей из ${result.sources_processed || 0} источников`;
+                    toasts.success(msg);
+                } else if (result.error) {
+                    toasts.error(result.error);
+                } else {
+                    toasts.info('Сбор завершен');
+                }
+
+                // Show errors if any
+                if (result.errors && result.errors.length > 0) {
+                    console.warn('Fetch errors:', result.errors);
+                    toasts.info(`Ошибок: ${result.errors.length}`);
+                }
+
+                setTimeout(loadData, 2000);
             } catch (error) {
-                toasts.error('Ошибка: ' + error.message);
+                console.error('Fetch error:', error);
+                toasts.error('Ошибка: ' + (error.message || 'неизвестная ошибка'));
             }
             setFetching(false);
         };

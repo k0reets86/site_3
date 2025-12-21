@@ -33,45 +33,77 @@ class AINCC_RSS_Parser {
     public function fetch_all_sources($force = false) {
         AINCC_Logger::info('Starting RSS fetch cycle', ['force' => $force]);
 
-        $sources = $this->db->get_sources_to_fetch(20, $force);
+        try {
+            $sources = $this->db->get_sources_to_fetch(20, $force);
+        } catch (Exception $e) {
+            AINCC_Logger::error('Exception getting sources', ['error' => $e->getMessage()]);
+            return ['success' => false, 'fetched' => 0, 'error' => 'Ошибка получения источников: ' . $e->getMessage()];
+        }
+
+        AINCC_Logger::info('Sources retrieved', ['count' => count($sources), 'force' => $force]);
 
         if (empty($sources)) {
-            AINCC_Logger::debug('No sources to fetch');
-            return ['success' => true, 'fetched' => 0, 'message' => 'Нет источников для загрузки'];
+            AINCC_Logger::warning('No sources to fetch - check if sources are enabled in database');
+            return [
+                'success' => true,
+                'fetched' => 0,
+                'sources_processed' => 0,
+                'message' => 'Нет источников для загрузки. Проверьте, что источники включены.',
+            ];
         }
 
         $total_new = 0;
         $sources_fetched = 0;
         $errors = [];
+        $sources_list = [];
 
         foreach ($sources as $source) {
+            $source_name = $source['name'] ?? $source['id'] ?? 'unknown';
+            $sources_list[] = $source_name;
+
             try {
+                AINCC_Logger::debug("Fetching source: {$source_name}", ['url' => $source['url'] ?? 'no-url']);
+
                 $result = $this->fetch_source($source);
                 $total_new += $result['new_count'] ?? 0;
                 $sources_fetched++;
 
-                AINCC_Logger::debug("Fetched source: {$source['name']}", [
+                AINCC_Logger::info("Fetched source: {$source_name}", [
                     'new_items' => $result['new_count'] ?? 0,
                     'total_items' => $result['total_count'] ?? 0,
+                    'duration_ms' => $result['duration'] ?? 0,
                 ]);
 
             } catch (Exception $e) {
-                AINCC_Logger::error("Error fetching {$source['name']}", [
+                AINCC_Logger::error("Error fetching {$source_name}", [
                     'error' => $e->getMessage(),
+                    'url' => $source['url'] ?? 'no-url',
                 ]);
-                $errors[] = $source['name'] . ': ' . $e->getMessage();
+                $errors[] = $source_name . ': ' . $e->getMessage();
                 $this->db->update_source_fetched($source['id'], $e->getMessage());
             }
         }
 
-        AINCC_Logger::info("RSS fetch cycle complete", ['new_items' => $total_new, 'sources' => $sources_fetched]);
+        AINCC_Logger::info("RSS fetch cycle complete", [
+            'new_items' => $total_new,
+            'sources_processed' => $sources_fetched,
+            'total_sources' => count($sources),
+            'errors_count' => count($errors),
+        ]);
+
+        $message = "Загружено {$total_new} новых статей из {$sources_fetched} источников";
+        if (!empty($errors)) {
+            $message .= ". Ошибок: " . count($errors);
+        }
 
         return [
             'success' => true,
             'fetched' => $total_new,
             'sources_processed' => $sources_fetched,
+            'sources_total' => count($sources),
             'errors' => $errors,
-            'message' => "Загружено {$total_new} новых статей из {$sources_fetched} источников",
+            'sources_list' => array_slice($sources_list, 0, 10),
+            'message' => $message,
         ];
     }
 
