@@ -138,16 +138,17 @@ class AINCC_Content_Processor {
         // Step 3: Simple fact check (cross-reference)
         $fact_check = $this->simple_fact_check($item, $analysis);
 
-        // Step 4: Generate content for each target language
-        $target_languages = AINCC_Settings::get('target_languages', ['de', 'ua', 'ru', 'en']);
+        // Step 4: Generate content for the primary language ONLY (not all languages)
+        // This prevents creating multiple drafts per article
+        $primary_lang = AINCC_Settings::get('default_language', 'de');
         $source_lang = $item['lang'] ?: 'de';
 
         $drafts = [];
-        foreach ($target_languages as $lang) {
-            $draft = $this->generate_draft($item, $analysis, $source_lang, $lang, $fact_check);
-            if ($draft) {
-                $drafts[$lang] = $draft;
-            }
+
+        // Generate only ONE draft in the primary language
+        $draft = $this->generate_draft($item, $analysis, $source_lang, $primary_lang, $fact_check);
+        if ($draft) {
+            $drafts[$primary_lang] = $draft;
         }
 
         // Step 5: Update raw item status

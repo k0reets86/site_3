@@ -60,6 +60,11 @@
             document.body.appendChild(this.container);
         },
         show(message, type = 'info') {
+            // Prevent empty toasts
+            if (!message || message === 'undefined' || message === 'null') {
+                console.warn('Empty toast prevented:', type);
+                return;
+            }
             const toast = document.createElement('div');
             toast.className = `aincc-toast ${type}`;
             toast.innerHTML = `<span class="aincc-toast-message">${message}</span>`;
@@ -69,9 +74,9 @@
                 setTimeout(() => toast.remove(), 300);
             }, 4000);
         },
-        success(msg) { this.show(msg, 'success'); },
-        error(msg) { this.show(msg, 'error'); },
-        info(msg) { this.show(msg, 'info'); },
+        success(msg) { this.show(msg || 'Успешно!', 'success'); },
+        error(msg) { this.show(msg || 'Произошла ошибка', 'error'); },
+        info(msg) { this.show(msg || 'Информация', 'info'); },
     };
 
     // Иконки SVG
