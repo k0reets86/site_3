@@ -209,7 +209,8 @@
     };
 
     // Строка черновика
-    const DraftRow = ({ draft, onAction }) => {
+    const DraftRow = ({ draft, onAction, publishingId }) => {
+        const isPublishing = publishingId === draft.id;
         return h('tr', null,
             h('td', null,
                 new Date(draft.created_at).toLocaleDateString('ru-RU', {
@@ -249,12 +250,14 @@
                         title: 'Отклонить статью',
                         onClick: () => onAction('reject', draft)
                     }, Icons.x, ' Отклонить'),
-                    // Кнопка публикации (для pending_ok или auto_ready)
+                    // Кнопка публикации (для pending_ok или auto_ready) - disabled during publishing
                     (draft.status === 'pending_ok' || draft.status === 'auto_ready') && h('button', {
                         className: 'aincc-btn aincc-btn-primary aincc-btn-sm',
-                        title: 'Опубликовать статью',
-                        onClick: () => onAction('publish', draft)
-                    }, Icons.send, ' Опубликовать')
+                        title: isPublishing ? 'Публикация...' : 'Опубликовать статью',
+                        onClick: () => !isPublishing && onAction('publish', draft),
+                        disabled: isPublishing || publishingId !== null,
+                        style: isPublishing ? { opacity: 0.7, cursor: 'wait' } : {}
+                    }, isPublishing ? '⏳ Публикация...' : [Icons.send, ' Опубликовать'])
                 )
             )
         );
@@ -593,6 +596,7 @@
         const [total, setTotal] = useState(0);
         const [fetching, setFetching] = useState(false);
         const [clearing, setClearing] = useState(false);
+        const [publishingId, setPublishingId] = useState(null); // Track which draft is being published
 
         const loadData = useCallback(async () => {
             setLoading(true);
@@ -694,15 +698,22 @@
                     }
                     break;
                 case 'publish':
+                    // Prevent duplicate publish attempts
+                    if (publishingId === draft.id) {
+                        toasts.info('Публикация уже выполняется...');
+                        return;
+                    }
+                    setPublishingId(draft.id);
                     try {
                         const publishResult = await api.post(`/drafts/${draft.id}/publish`, { channels: ['wordpress', 'telegram'] });
                         if (publishResult.success) {
-                            toasts.success('Опубликовано!');
+                            toasts.success(publishResult.message || 'Опубликовано!');
                         } else {
                             toasts.error('Ошибка публикации: ' + (publishResult.error || 'неизвестная ошибка'));
                         }
                         loadData();
                     } catch (e) { toasts.error('Ошибка: ' + (e.message || 'не удалось опубликовать')); }
+                    finally { setPublishingId(null); }
                     break;
             }
         };
@@ -762,7 +773,7 @@
                             h('th', null, 'Действия')
                         )
                     ),
-                    h('tbody', null, drafts.map(d => h(DraftRow, { key: d.id, draft: d, onAction: handleAction })))
+                    h('tbody', null, drafts.map(d => h(DraftRow, { key: d.id, draft: d, onAction: handleAction, publishingId })))
                 )
             ),
             total > 10 && h('div', { className: 'aincc-pagination' },
