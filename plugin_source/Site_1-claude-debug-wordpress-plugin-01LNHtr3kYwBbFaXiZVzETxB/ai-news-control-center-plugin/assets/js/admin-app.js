@@ -1163,7 +1163,11 @@
                             h('td', null, s.lang?.toUpperCase()),
                             h('td', null, `${(s.trust_score * 100).toFixed(0)}%`),
                             h('td', null,
-                                h('button', { className: 'aincc-btn aincc-btn-icon aincc-btn-danger', title: 'Удалить', onClick: () => handleDelete(s) }, Icons.trash)
+                                h('button', {
+                                    className: 'aincc-btn aincc-btn-danger aincc-btn-sm',
+                                    onClick: () => handleDelete(s),
+                                    style: { padding: '4px 10px', fontSize: 12 }
+                                }, '✕ Удалить')
                             )
                         )
                     ))
