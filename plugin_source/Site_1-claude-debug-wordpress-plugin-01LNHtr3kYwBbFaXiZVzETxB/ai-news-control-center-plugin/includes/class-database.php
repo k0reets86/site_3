@@ -1345,7 +1345,9 @@ class AINCC_Database {
         return $this->wpdb->get_results(
             $this->wpdb->prepare(
                 "SELECT q.*,
-                        JSON_UNQUOTE(JSON_EXTRACT(q.payload, '$.article_id')) as article_id
+                        JSON_UNQUOTE(JSON_EXTRACT(q.payload, '$.article_id')) as article_id,
+                        JSON_UNQUOTE(JSON_EXTRACT(q.payload, '$.raw_item_id')) as raw_item_id,
+                        JSON_UNQUOTE(JSON_EXTRACT(q.payload, '$.source_id')) as source_id
                  FROM {$this->table('queue')} q
                  WHERE q.status = %s
                  AND q.attempts < q.max_attempts
