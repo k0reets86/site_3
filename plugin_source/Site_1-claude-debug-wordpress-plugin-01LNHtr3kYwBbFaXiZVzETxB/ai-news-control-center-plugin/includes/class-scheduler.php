@@ -90,16 +90,22 @@ class AINCC_Scheduler {
         $job = 'fetch_sources';
         $result = ['success' => false, 'fetched' => 0, 'errors' => [], 'sources_processed' => 0];
 
+        AINCC_Logger::info('Scheduler: fetch_sources called', ['force' => $force]);
+
         if (!$this->acquire_lock($job)) {
+            AINCC_Logger::warning('Scheduler: lock not acquired for fetch_sources');
             $result['error'] = 'Задача уже выполняется. Попробуйте через несколько минут.';
             return $result;
         }
+
+        AINCC_Logger::info('Scheduler: lock acquired, starting fetch');
 
         try {
             // Get RSS parser - ensure it's loaded
             $rss_parser = aincc_get('rss_parser');
 
             if (!$rss_parser) {
+                AINCC_Logger::debug('Scheduler: RSS parser not in container, loading directly');
                 // Try to load directly
                 if (!class_exists('AINCC_RSS_Parser')) {
                     require_once AINCC_PLUGIN_DIR . 'includes/class-rss-parser.php';
@@ -110,18 +116,28 @@ class AINCC_Scheduler {
             // Use the RSS parser's fetch_all_sources which now returns results
             $fetch_result = $rss_parser->fetch_all_sources($force);
 
+            AINCC_Logger::info('Scheduler: fetch_all_sources completed', [
+                'result_type' => gettype($fetch_result),
+                'result' => is_array($fetch_result) ? array_diff_key($fetch_result, ['sources_list' => 1]) : $fetch_result,
+            ]);
+
             $this->release_lock($job);
 
             if (is_array($fetch_result)) {
-                return array_merge(['success' => true], $fetch_result);
+                // Ensure success is set
+                $fetch_result['success'] = $fetch_result['success'] ?? true;
+                return $fetch_result;
             }
 
-            return ['success' => true, 'message' => 'Сбор завершен'];
+            return ['success' => true, 'message' => 'Сбор завершен', 'fetched' => 0];
 
         } catch (Throwable $e) {
-            AINCC_Logger::error('Fetch sources failed', ['error' => $e->getMessage()]);
+            AINCC_Logger::error('Fetch sources failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             $this->release_lock($job);
-            return ['success' => false, 'error' => $e->getMessage()];
+            return ['success' => false, 'error' => 'Ошибка сбора: ' . $e->getMessage()];
         }
     }
 
