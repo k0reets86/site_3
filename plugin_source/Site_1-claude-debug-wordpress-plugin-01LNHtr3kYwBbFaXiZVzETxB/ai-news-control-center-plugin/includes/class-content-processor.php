@@ -112,6 +112,30 @@ class AINCC_Content_Processor {
             ['id' => $raw_item_id]
         );
 
+        // Step 0: Check relevance - filter out irrelevant articles early
+        $relevance = $this->ai->check_relevance($item['title'], $item['summary'] ?? '');
+
+        if ($relevance['success'] && !$relevance['relevant']) {
+            AINCC_Logger::info("Article rejected as irrelevant", [
+                'title' => $item['title'],
+                'reason' => $relevance['reason'],
+            ]);
+
+            $wpdb->update(
+                $this->db->table('raw_items'),
+                ['status' => 'rejected'],
+                ['id' => $raw_item_id]
+            );
+
+            return [
+                'status' => 'rejected',
+                'reason' => $relevance['reason'],
+            ];
+        }
+
+        // Store relevance priority for later use
+        $relevance_priority = $relevance['priority'] ?? 'medium';
+
         // Step 1: Extract entities and classify
         $analysis = $this->analyze_content($item);
 

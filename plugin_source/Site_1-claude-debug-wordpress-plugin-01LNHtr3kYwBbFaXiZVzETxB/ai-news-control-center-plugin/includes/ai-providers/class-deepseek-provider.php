@@ -1041,4 +1041,89 @@ PROMPT;
             'telegram_text' => trim($result['content']),
         ];
     }
+
+    /**
+     * Check if article is relevant for publication
+     * Returns relevance score and reason
+     */
+    public function check_relevance($title, $summary) {
+        $content = $title . "\n\n" . $summary;
+
+        $system_prompt = <<<PROMPT
+# РОЛЬ
+Ты редактор новостного портала europulse.today для украинской диаспоры в Германии.
+
+# ЗАДАЧА
+Оцени, стоит ли публиковать эту новость для нашей аудитории.
+
+# КРИТЕРИИ ОТБОРА:
+
+## ВЫСОКИЙ ПРИОРИТЕТ (relevant: true, priority: high):
+- Изменения в миграционном законодательстве, визах, ВНЖ
+- Новости о помощи украинским беженцам
+- Пособия, социальная помощь, Jobcenter, Bürgergeld
+- Интеграция: язык, работа, признание дипломов
+- Важные политические решения Германии по Украине
+- Новости про Баварию и Мюнхен важные для жителей
+- Образование, школы, детские сады
+- Здравоохранение, страховка
+
+## СРЕДНИЙ ПРИОРИТЕТ (relevant: true, priority: medium):
+- Экономика Германии (если влияет на работу/зарплаты)
+- Культурные события с украинским участием
+- Общие новости Баварии
+- Транспорт, MVV - изменения расписания
+- Спорт: большие турниры, футбол, FC Bayern, Бундеслига, украинские спортсмены
+
+## НИЗКИЙ ПРИОРИТЕТ (relevant: true, priority: low):
+- Общие новости Германии
+- Развлекательные события
+
+## НЕ ПУБЛИКОВАТЬ (relevant: false):
+- Скандалы знаменитостей без связи с важными темами
+- Чистая реклама и пресс-релизы компаний
+- Очень локальные новости маленьких городов (не Мюнхен/крупные города)
+- Погода (кроме экстремальной)
+- Мелкая криминальная хроника
+
+# ФОРМАТ ОТВЕТА (только JSON):
+{
+  "relevant": true или false,
+  "priority": "high" или "medium" или "low",
+  "reason": "краткое объяснение на русском почему да/нет"
+}
+PROMPT;
+
+        $result = $this->complete($content, $system_prompt, ['temperature' => 0.3, 'max_tokens' => 500]);
+
+        if (!$result['success']) {
+            // On error, assume relevant to not lose articles
+            return [
+                'success' => true,
+                'relevant' => true,
+                'priority' => 'medium',
+                'reason' => 'AI check failed, defaulting to relevant',
+            ];
+        }
+
+        if (preg_match('/\{[\s\S]*\}/', $result['content'], $matches)) {
+            $parsed = json_decode($matches[0], true);
+            if ($parsed) {
+                return [
+                    'success' => true,
+                    'relevant' => $parsed['relevant'] ?? true,
+                    'priority' => $parsed['priority'] ?? 'medium',
+                    'reason' => $parsed['reason'] ?? '',
+                ];
+            }
+        }
+
+        // Fallback - assume relevant
+        return [
+            'success' => true,
+            'relevant' => true,
+            'priority' => 'medium',
+            'reason' => 'Could not parse AI response',
+        ];
+    }
 }

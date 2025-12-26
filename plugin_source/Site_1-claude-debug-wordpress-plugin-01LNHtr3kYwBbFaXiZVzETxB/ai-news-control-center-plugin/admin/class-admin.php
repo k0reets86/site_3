@@ -19,11 +19,45 @@ class AINCC_Admin {
         add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_init', [$this, 'check_and_init_database']);
 
+        // CRITICAL: Force cron execution on plugin pages to ensure scheduled tasks run
+        add_action('admin_init', [$this, 'force_cron_execution']);
+
         // Add admin bar menu
         add_action('admin_bar_menu', [$this, 'add_admin_bar_menu'], 100);
 
         // Ajax handlers
         add_action('wp_ajax_aincc_quick_stats', [$this, 'ajax_quick_stats']);
+    }
+
+    /**
+     * Force cron execution when visiting plugin admin pages
+     * This ensures scheduled tasks run even if site has low traffic
+     */
+    public function force_cron_execution() {
+        // Only on our plugin pages
+        if (!isset($_GET['page']) || strpos($_GET['page'], 'ai-news-center') === false) {
+            return;
+        }
+
+        // Don't run more than once per 2 minutes
+        $last_forced = get_transient('aincc_cron_forced');
+        if ($last_forced) {
+            return;
+        }
+
+        // Set transient to prevent too frequent execution
+        set_transient('aincc_cron_forced', time(), 2 * MINUTE_IN_SECONDS);
+
+        // Spawn a non-blocking request to wp-cron.php
+        $cron_url = site_url('wp-cron.php?doing_wp_cron=' . sprintf('%.22F', microtime(true)));
+
+        wp_remote_post($cron_url, [
+            'timeout' => 0.01,
+            'blocking' => false,
+            'sslverify' => false,
+        ]);
+
+        AINCC_Logger::debug('Forced cron spawn from admin page');
     }
 
     /**

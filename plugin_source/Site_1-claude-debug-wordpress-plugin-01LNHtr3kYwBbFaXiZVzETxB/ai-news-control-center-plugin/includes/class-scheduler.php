@@ -123,6 +123,22 @@ class AINCC_Scheduler {
 
             $this->release_lock($job);
 
+            // IMPORTANT: If items were fetched, immediately process the queue to create drafts
+            // This ensures users see results right away instead of waiting for cron
+            if (is_array($fetch_result) && ($fetch_result['fetched'] ?? 0) > 0) {
+                AINCC_Logger::info('Scheduler: Auto-processing queue after fetch');
+                $process_result = $this->process_queue();
+
+                // Merge processing info into result
+                $fetch_result['queue_processed'] = $process_result['processed'] ?? 0;
+                $fetch_result['drafts_created'] = $process_result['processed'] ?? 0;
+
+                // Update message to show drafts created
+                if ($process_result['processed'] > 0) {
+                    $fetch_result['message'] = "Загружено {$fetch_result['fetched']} статей, создано {$process_result['processed']} черновиков";
+                }
+            }
+
             if (is_array($fetch_result)) {
                 // Ensure success is set
                 $fetch_result['success'] = $fetch_result['success'] ?? true;
