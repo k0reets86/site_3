@@ -385,64 +385,165 @@ function aincc_get_default_sources() {
         ],
 
         // ==========================================
-        // TRANSPORT (Trust: 0.95) - DISABLED: Most transport RSS feeds are broken
+        // SPORTS - FC BAYERN & BUNDESLIGA (Trust: 0.85)
         // ==========================================
 
-        // MVV, DB, ADAC - RSS feeds discontinued or require authentication
-        // Keeping disabled for now until working URLs are found
+        [
+            'id' => 'google_news_fc_bayern',
+            'name' => 'Google News: FC Bayern München',
+            'url' => 'https://news.google.com/rss/search?q=FC+Bayern+München&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'München',
+            'category' => 'sports',
+            'trust_score' => 0.85,
+            'fetch_interval' => 15,
+            'priority' => 2,
+            'enabled' => 1,
+        ],
+        [
+            'id' => 'google_news_bundesliga',
+            'name' => 'Google News: Bundesliga',
+            'url' => 'https://news.google.com/rss/search?q=Bundesliga+Fußball&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'Deutschland',
+            'category' => 'sports',
+            'trust_score' => 0.85,
+            'fetch_interval' => 20,
+            'priority' => 3,
+            'enabled' => 1,
+        ],
+        [
+            'id' => 'kicker_rss',
+            'name' => 'Kicker Sport',
+            'url' => 'https://rss.kicker.de/news/aktuell',
+            'method' => 'rss',
+            'lang' => 'de',
+            'geo' => 'Deutschland',
+            'category' => 'sports',
+            'trust_score' => 0.85,
+            'fetch_interval' => 15,
+            'priority' => 3,
+            'enabled' => 1,
+        ],
+        [
+            'id' => 'sport1_rss',
+            'name' => 'Sport1',
+            'url' => 'https://www.sport1.de/feeds/alle-artikel.rss',
+            'method' => 'rss',
+            'lang' => 'de',
+            'geo' => 'Deutschland',
+            'category' => 'sports',
+            'trust_score' => 0.80,
+            'fetch_interval' => 20,
+            'priority' => 3,
+            'enabled' => 1,
+        ],
+        [
+            'id' => 'google_news_champions_league',
+            'name' => 'Google News: Champions League',
+            'url' => 'https://news.google.com/rss/search?q=Champions+League+Bayern&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'EU',
+            'category' => 'sports',
+            'trust_score' => 0.85,
+            'fetch_interval' => 30,
+            'priority' => 3,
+            'enabled' => 1,
+        ],
 
         // ==========================================
-        // WEATHER & EMERGENCY (Trust: 1.0) - DISABLED: RSS feeds discontinued
+        // TRANSPORT - via Google News (Trust: 0.85)
         // ==========================================
 
-        // DWD and NINA use different API formats now
+        [
+            'id' => 'google_news_deutsche_bahn',
+            'name' => 'Google News: Deutsche Bahn',
+            'url' => 'https://news.google.com/rss/search?q=Deutsche+Bahn+Störung+Verspätung&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'Deutschland',
+            'category' => 'transport',
+            'trust_score' => 0.85,
+            'fetch_interval' => 20,
+            'priority' => 3,
+            'enabled' => 1,
+        ],
+        [
+            'id' => 'google_news_mvv_muenchen',
+            'name' => 'Google News: MVV München',
+            'url' => 'https://news.google.com/rss/search?q=MVV+München+S-Bahn+U-Bahn&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'München',
+            'category' => 'transport',
+            'trust_score' => 0.85,
+            'fetch_interval' => 15,
+            'priority' => 2,
+            'enabled' => 1,
+        ],
+        [
+            'id' => 'google_news_flughafen_muenchen',
+            'name' => 'Google News: Flughafen München',
+            'url' => 'https://news.google.com/rss/search?q=Flughafen+München&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'München',
+            'category' => 'transport',
+            'trust_score' => 0.85,
+            'fetch_interval' => 30,
+            'priority' => 3,
+            'enabled' => 1,
+        ],
 
         // ==========================================
         // ECONOMY (Trust: 0.85)
         // ==========================================
 
         [
-            'id' => 'handelsblatt',
-            'name' => 'Handelsblatt',
-            'url' => 'https://www.handelsblatt.com/contentexport/feed/top-themen',
-            'method' => 'rss',
-            'lang' => 'de',
-            'geo' => 'Deutschland',
-            'category' => 'economy',
-            'trust_score' => 0.90,
-            'fetch_interval' => 15,
-            'priority' => 3,
-            'enabled' => 1,
-        ],
-        [
-            'id' => 'wiwo',
-            'name' => 'WirtschaftsWoche',
-            'url' => 'https://www.wiwo.de/contentexport/feed/rss/schlagzeilen',
-            'method' => 'rss',
-            'lang' => 'de',
-            'geo' => 'Deutschland',
-            'category' => 'economy',
-            'trust_score' => 0.85,
-            'fetch_interval' => 15,
-            'priority' => 3,
-            'enabled' => 1,
-        ],
-        [
-            'id' => 'manager_magazin',
-            'name' => 'Manager Magazin',
-            'url' => 'https://www.manager-magazin.de/static/site/rss/schlagzeilen.xml',
-            'method' => 'rss',
+            'id' => 'google_news_wirtschaft_de',
+            'name' => 'Google News: Wirtschaft Deutschland',
+            'url' => 'https://news.google.com/rss/search?q=Wirtschaft+Deutschland&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
             'lang' => 'de',
             'geo' => 'Deutschland',
             'category' => 'economy',
             'trust_score' => 0.85,
             'fetch_interval' => 20,
+            'priority' => 3,
+            'enabled' => 1,
+        ],
+        [
+            'id' => 'google_news_arbeitsmarkt',
+            'name' => 'Google News: Arbeitsmarkt Jobs',
+            'url' => 'https://news.google.com/rss/search?q=Arbeitsmarkt+Deutschland+Jobs&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'Deutschland',
+            'category' => 'economy',
+            'trust_score' => 0.85,
+            'fetch_interval' => 30,
+            'priority' => 3,
+            'enabled' => 1,
+        ],
+        [
+            'id' => 'google_news_mindestlohn',
+            'name' => 'Google News: Mindestlohn',
+            'url' => 'https://news.google.com/rss/search?q=Mindestlohn+Deutschland&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'Deutschland',
+            'category' => 'economy',
+            'trust_score' => 0.85,
+            'fetch_interval' => 60,
             'priority' => 4,
             'enabled' => 1,
         ],
 
         // ==========================================
-        // INTERNATIONAL (Trust: 0.85-0.95)
+        // INTERNATIONAL & EU (Trust: 0.85-0.90)
         // ==========================================
 
         [
@@ -458,25 +559,61 @@ function aincc_get_default_sources() {
             'priority' => 3,
             'enabled' => 1,
         ],
-        // Reuters German RSS - service discontinued
-        // BBC German RSS - service discontinued
-        // AP News RSS - requires different URL format now
+        [
+            'id' => 'google_news_eu_politik',
+            'name' => 'Google News: EU Politik',
+            'url' => 'https://news.google.com/rss/search?q=EU+Europa+Politik&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'EU',
+            'category' => 'international',
+            'trust_score' => 0.85,
+            'fetch_interval' => 20,
+            'priority' => 3,
+            'enabled' => 1,
+        ],
+        [
+            'id' => 'google_news_nato',
+            'name' => 'Google News: NATO',
+            'url' => 'https://news.google.com/rss/search?q=NATO+Deutschland&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'International',
+            'category' => 'international',
+            'trust_score' => 0.85,
+            'fetch_interval' => 30,
+            'priority' => 3,
+            'enabled' => 1,
+        ],
 
         // ==========================================
-        // GOOGLE NEWS (Trust: 0.85)
+        // GOOGLE NEWS - UKRAINE & DIASPORA (Trust: 0.85)
         // ==========================================
 
         [
-            'id' => 'google_news_ukraine_de',
-            'name' => 'Google News: Ukraine (DE)',
-            'url' => 'https://news.google.com/rss/search?q=Ukraine&hl=de&gl=DE&ceid=DE:de',
+            'id' => 'google_news_ukraine_krieg',
+            'name' => 'Google News: Ukraine Krieg',
+            'url' => 'https://news.google.com/rss/search?q=Ukraine+Krieg+aktuell&hl=de&gl=DE&ceid=DE:de',
             'method' => 'google_news',
             'lang' => 'de',
             'geo' => 'Ukraine',
             'category' => 'aggregator',
             'trust_score' => 0.85,
             'fetch_interval' => 10,
-            'priority' => 3,
+            'priority' => 1,
+            'enabled' => 1,
+        ],
+        [
+            'id' => 'google_news_ukraine_hilfe',
+            'name' => 'Google News: Ukraine Hilfe',
+            'url' => 'https://news.google.com/rss/search?q=Ukraine+Hilfe+Deutschland&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'Deutschland',
+            'category' => 'aggregator',
+            'trust_score' => 0.85,
+            'fetch_interval' => 20,
+            'priority' => 2,
             'enabled' => 1,
         ],
         [
@@ -493,22 +630,27 @@ function aincc_get_default_sources() {
             'enabled' => 1,
         ],
         [
-            'id' => 'google_news_buergergeld',
-            'name' => 'Google News: Bürgergeld',
-            'url' => 'https://news.google.com/rss/search?q=Bürgergeld+2024&hl=de&gl=DE&ceid=DE:de',
+            'id' => 'google_news_selenskyj',
+            'name' => 'Google News: Selenskyj',
+            'url' => 'https://news.google.com/rss/search?q=Selenskyj&hl=de&gl=DE&ceid=DE:de',
             'method' => 'google_news',
             'lang' => 'de',
-            'geo' => 'Deutschland',
+            'geo' => 'Ukraine',
             'category' => 'aggregator',
             'trust_score' => 0.85,
-            'fetch_interval' => 30,
-            'priority' => 3,
+            'fetch_interval' => 15,
+            'priority' => 2,
             'enabled' => 1,
         ],
+
+        // ==========================================
+        // GOOGLE NEWS - MIGRATION & SOZIALES (Trust: 0.85)
+        // ==========================================
+
         [
-            'id' => 'google_news_aufenthaltstitel',
-            'name' => 'Google News: Aufenthaltstitel',
-            'url' => 'https://news.google.com/rss/search?q=Aufenthaltstitel+Ukraine&hl=de&gl=DE&ceid=DE:de',
+            'id' => 'google_news_buergergeld',
+            'name' => 'Google News: Bürgergeld',
+            'url' => 'https://news.google.com/rss/search?q=Bürgergeld&hl=de&gl=DE&ceid=DE:de',
             'method' => 'google_news',
             'lang' => 'de',
             'geo' => 'Deutschland',
@@ -519,9 +661,66 @@ function aincc_get_default_sources() {
             'enabled' => 1,
         ],
         [
+            'id' => 'google_news_aufenthaltstitel',
+            'name' => 'Google News: Aufenthaltstitel Visum',
+            'url' => 'https://news.google.com/rss/search?q=Aufenthaltstitel+Visum+Deutschland&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'Deutschland',
+            'category' => 'aggregator',
+            'trust_score' => 0.85,
+            'fetch_interval' => 30,
+            'priority' => 2,
+            'enabled' => 1,
+        ],
+        [
+            'id' => 'google_news_bamf',
+            'name' => 'Google News: BAMF Asyl',
+            'url' => 'https://news.google.com/rss/search?q=BAMF+Asyl+Flüchtlinge&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'Deutschland',
+            'category' => 'aggregator',
+            'trust_score' => 0.85,
+            'fetch_interval' => 30,
+            'priority' => 2,
+            'enabled' => 1,
+        ],
+        [
+            'id' => 'google_news_integration',
+            'name' => 'Google News: Integration Deutschland',
+            'url' => 'https://news.google.com/rss/search?q=Integration+Migranten+Deutschland&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'Deutschland',
+            'category' => 'aggregator',
+            'trust_score' => 0.85,
+            'fetch_interval' => 30,
+            'priority' => 3,
+            'enabled' => 1,
+        ],
+        [
+            'id' => 'google_news_kindergeld',
+            'name' => 'Google News: Kindergeld',
+            'url' => 'https://news.google.com/rss/search?q=Kindergeld+Deutschland&hl=de&gl=DE&ceid=DE:de',
+            'method' => 'google_news',
+            'lang' => 'de',
+            'geo' => 'Deutschland',
+            'category' => 'aggregator',
+            'trust_score' => 0.85,
+            'fetch_interval' => 60,
+            'priority' => 3,
+            'enabled' => 1,
+        ],
+
+        // ==========================================
+        // GOOGLE NEWS - MÜNCHEN & BAYERN (Trust: 0.85)
+        // ==========================================
+
+        [
             'id' => 'google_news_muenchen',
-            'name' => 'Google News: München',
-            'url' => 'https://news.google.com/rss/search?q=München+aktuell&hl=de&gl=DE&ceid=DE:de',
+            'name' => 'Google News: München aktuell',
+            'url' => 'https://news.google.com/rss/search?q=München+aktuell+News&hl=de&gl=DE&ceid=DE:de',
             'method' => 'google_news',
             'lang' => 'de',
             'geo' => 'München',
