@@ -780,14 +780,34 @@ class AINCC_REST_API {
      */
     public function trigger_fetch($request) {
         try {
-            $parser = new AINCC_RSS_Parser();
-            $parser->fetch_all_sources();
+            // Use scheduler which returns detailed results and auto-processes queue
+            $scheduler = new AINCC_Scheduler();
+            $result = $scheduler->fetch_sources(true); // Force fetch all sources
+
+            // Build detailed message
+            $message = $result['message'] ?? 'Сбор завершён';
+            $errors = $result['errors'] ?? [];
+
+            // If there were errors, append them to message
+            if (!empty($errors)) {
+                $error_list = array_slice($errors, 0, 5); // Show max 5 errors
+                $message .= "\n\nОшибки:\n• " . implode("\n• ", $error_list);
+                if (count($errors) > 5) {
+                    $message .= "\n... и ещё " . (count($errors) - 5) . " ошибок";
+                }
+            }
 
             return new WP_REST_Response([
-                'success' => true,
-                'message' => 'Сбор новостей запущен',
+                'success' => $result['success'] ?? false,
+                'message' => $message,
+                'fetched' => $result['fetched'] ?? 0,
+                'sources_processed' => $result['sources_processed'] ?? 0,
+                'errors_count' => count($errors),
+                'errors' => array_slice($errors, 0, 10),
+                'drafts_created' => $result['drafts_created'] ?? 0,
             ], 200);
         } catch (Exception $e) {
+            AINCC_Logger::error('Trigger fetch failed', ['error' => $e->getMessage()]);
             return new WP_REST_Response([
                 'success' => false,
                 'message' => 'Ошибка: ' . $e->getMessage(),

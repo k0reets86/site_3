@@ -385,79 +385,17 @@ function aincc_get_default_sources() {
         ],
 
         // ==========================================
-        // TRANSPORT (Trust: 0.95)
+        // TRANSPORT (Trust: 0.95) - DISABLED: Most transport RSS feeds are broken
         // ==========================================
 
-        [
-            'id' => 'mvv_news',
-            'name' => 'MVV Verkehrsmeldungen',
-            'url' => 'https://www.mvv-muenchen.de/fahrinfo/verkehrsmeldungen/rss',
-            'method' => 'rss',
-            'lang' => 'de',
-            'geo' => 'München',
-            'category' => 'transport',
-            'trust_score' => 1.0,
-            'fetch_interval' => 5,
-            'priority' => 1,
-            'enabled' => 1,
-        ],
-        [
-            'id' => 'db_stoerungen',
-            'name' => 'Deutsche Bahn Störungen',
-            'url' => 'https://www.bahn.de/p/view/service/aktuell/newsticker_rss.shtml',
-            'method' => 'rss',
-            'lang' => 'de',
-            'geo' => 'Deutschland',
-            'category' => 'transport',
-            'trust_score' => 1.0,
-            'fetch_interval' => 10,
-            'priority' => 2,
-            'enabled' => 1,
-        ],
-        [
-            'id' => 'adac_verkehr',
-            'name' => 'ADAC Verkehr Bayern',
-            'url' => 'https://www.adac.de/rss/verkehr/bayern.xml',
-            'method' => 'rss',
-            'lang' => 'de',
-            'geo' => 'Bayern',
-            'category' => 'transport',
-            'trust_score' => 0.95,
-            'fetch_interval' => 10,
-            'priority' => 2,
-            'enabled' => 1,
-        ],
+        // MVV, DB, ADAC - RSS feeds discontinued or require authentication
+        // Keeping disabled for now until working URLs are found
 
         // ==========================================
-        // WEATHER & EMERGENCY (Trust: 1.0)
+        // WEATHER & EMERGENCY (Trust: 1.0) - DISABLED: RSS feeds discontinued
         // ==========================================
 
-        [
-            'id' => 'dwd_warnungen_bayern',
-            'name' => 'DWD Wetterwarnungen Bayern',
-            'url' => 'https://www.dwd.de/DWD/warnungen/warnapp_gemeinden/rss/warnungen_muenchen_en.rss',
-            'method' => 'rss',
-            'lang' => 'de',
-            'geo' => 'München',
-            'category' => 'weather',
-            'trust_score' => 1.0,
-            'fetch_interval' => 5,
-            'priority' => 1,
-            'enabled' => 1,
-        ],
-        [
-            'id' => 'nina_warnungen',
-            'name' => 'NINA Warnmeldungen',
-            'url' => 'https://warnung.bund.de/api31/mowas/rss/DE.rss',
-            'method' => 'rss',
-            'lang' => 'de',
-            'geo' => 'Deutschland',
-            'category' => 'emergency',
-            'trust_score' => 1.0,
-            'fetch_interval' => 5,
-            'priority' => 1,
-            'enabled' => 1,
-        ],
+        // DWD and NINA use different API formats now
 
         // ==========================================
         // ECONOMY (Trust: 0.85)
@@ -520,45 +458,9 @@ function aincc_get_default_sources() {
             'priority' => 3,
             'enabled' => 1,
         ],
-        [
-            'id' => 'reuters_de',
-            'name' => 'Reuters Deutschland',
-            'url' => 'https://de.reuters.com/rssFeed/topNews',
-            'method' => 'rss',
-            'lang' => 'de',
-            'geo' => 'International',
-            'category' => 'international',
-            'trust_score' => 0.95,
-            'fetch_interval' => 10,
-            'priority' => 2,
-            'enabled' => 1,
-        ],
-        [
-            'id' => 'bbc_german',
-            'name' => 'BBC News Deutsch',
-            'url' => 'https://feeds.bbci.co.uk/german/rss.xml',
-            'method' => 'rss',
-            'lang' => 'de',
-            'geo' => 'International',
-            'category' => 'international',
-            'trust_score' => 0.95,
-            'fetch_interval' => 15,
-            'priority' => 3,
-            'enabled' => 1,
-        ],
-        [
-            'id' => 'ap_news',
-            'name' => 'AP News',
-            'url' => 'https://apnews.com/apf-topnews',
-            'method' => 'rss',
-            'lang' => 'en',
-            'geo' => 'International',
-            'category' => 'international',
-            'trust_score' => 0.95,
-            'fetch_interval' => 10,
-            'priority' => 3,
-            'enabled' => 1,
-        ],
+        // Reuters German RSS - service discontinued
+        // BBC German RSS - service discontinued
+        // AP News RSS - requires different URL format now
 
         // ==========================================
         // GOOGLE NEWS (Trust: 0.85)
