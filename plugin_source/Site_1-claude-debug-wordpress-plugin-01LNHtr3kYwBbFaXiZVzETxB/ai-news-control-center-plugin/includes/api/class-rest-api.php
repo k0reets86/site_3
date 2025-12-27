@@ -492,6 +492,32 @@ class AINCC_REST_API {
                 'url' => ['type' => 'string', 'required' => true],
             ],
         ]);
+
+        // PUBLIC cron endpoint - uses secret key authentication
+        // Can be called by server cron: curl https://site.com/wp-json/aincc/v1/cron?secret=KEY
+        register_rest_route(self::NAMESPACE, '/cron', [
+            'methods' => 'GET',
+            'callback' => [$this, 'handle_public_cron'],
+            'permission_callback' => '__return_true', // Public, uses secret
+            'args' => [
+                'secret' => ['type' => 'string', 'required' => true],
+                'action' => ['type' => 'string', 'default' => 'all'],
+            ],
+        ]);
+
+        // Get cron setup info (including secret key)
+        register_rest_route(self::NAMESPACE, '/system/cron-setup', [
+            'methods' => 'GET',
+            'callback' => [$this, 'get_cron_setup_info'],
+            'permission_callback' => [$this, 'check_admin_permission'],
+        ]);
+
+        // Regenerate cron secret
+        register_rest_route(self::NAMESPACE, '/system/cron-secret/regenerate', [
+            'methods' => 'POST',
+            'callback' => [$this, 'regenerate_cron_secret'],
+            'permission_callback' => [$this, 'check_admin_permission'],
+        ]);
     }
 
     /**
@@ -754,14 +780,34 @@ class AINCC_REST_API {
      */
     public function trigger_fetch($request) {
         try {
-            $parser = new AINCC_RSS_Parser();
-            $parser->fetch_all_sources();
+            // Use scheduler which returns detailed results and auto-processes queue
+            $scheduler = new AINCC_Scheduler();
+            $result = $scheduler->fetch_sources(true); // Force fetch all sources
+
+            // Build detailed message
+            $message = $result['message'] ?? 'Сбор завершён';
+            $errors = $result['errors'] ?? [];
+
+            // If there were errors, append them to message
+            if (!empty($errors)) {
+                $error_list = array_slice($errors, 0, 5); // Show max 5 errors
+                $message .= "\n\nОшибки:\n• " . implode("\n• ", $error_list);
+                if (count($errors) > 5) {
+                    $message .= "\n... и ещё " . (count($errors) - 5) . " ошибок";
+                }
+            }
 
             return new WP_REST_Response([
-                'success' => true,
-                'message' => 'Сбор новостей запущен',
+                'success' => $result['success'] ?? false,
+                'message' => $message,
+                'fetched' => $result['fetched'] ?? 0,
+                'sources_processed' => $result['sources_processed'] ?? 0,
+                'errors_count' => count($errors),
+                'errors' => array_slice($errors, 0, 10),
+                'drafts_created' => $result['drafts_created'] ?? 0,
             ], 200);
         } catch (Exception $e) {
+            AINCC_Logger::error('Trigger fetch failed', ['error' => $e->getMessage()]);
             return new WP_REST_Response([
                 'success' => false,
                 'message' => 'Ошибка: ' . $e->getMessage(),
@@ -2035,6 +2081,182 @@ class AINCC_REST_API {
             'success' => true,
             'images' => array_slice($images, 0, 5),
             'primary' => $images[0]['url'],
+        ], 200);
+    }
+
+    /**
+     * Handle public cron request (uses secret key for auth)
+     * This allows TRUE scheduled execution via server cron
+     */
+    public function handle_public_cron($request) {
+        $secret = $request->get_param('secret');
+        $action = $request->get_param('action') ?: 'all';
+
+        // Verify secret
+        $stored_secret = get_option('aincc_cron_secret', '');
+
+        // Auto-generate secret if not exists
+        if (empty($stored_secret)) {
+            $stored_secret = wp_generate_password(32, false);
+            update_option('aincc_cron_secret', $stored_secret, 'no');
+        }
+
+        if (empty($secret) || !hash_equals($stored_secret, $secret)) {
+            return new WP_REST_Response([
+                'success' => false,
+                'error' => 'Invalid or missing secret key',
+                'help' => 'Get the secret from AI News Control Center > Settings > Cron Setup',
+            ], 403);
+        }
+
+        // Set time limit for cron execution
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(300);
+        }
+
+        $results = [
+            'status' => 'ok',
+            'timestamp' => current_time('mysql'),
+            'actions' => [],
+        ];
+
+        try {
+            $scheduler = new AINCC_Scheduler();
+
+            switch ($action) {
+                case 'fetch':
+                    $result = $scheduler->fetch_sources();
+                    $results['actions']['fetch'] = $result;
+                    break;
+
+                case 'process':
+                    $result = $scheduler->process_queue();
+                    $results['actions']['process'] = $result;
+                    break;
+
+                case 'publish':
+                    $result = $scheduler->auto_publish();
+                    $results['actions']['publish'] = $result;
+                    break;
+
+                case 'cleanup':
+                    $result = $scheduler->cleanup();
+                    $results['actions']['cleanup'] = $result;
+                    break;
+
+                case 'all':
+                default:
+                    // 1. Fetch RSS
+                    $fetch_result = $scheduler->fetch_sources();
+                    $results['actions']['fetch'] = [
+                        'success' => $fetch_result['success'] ?? false,
+                        'fetched' => $fetch_result['fetched'] ?? 0,
+                    ];
+
+                    // Small delay between operations
+                    usleep(500000);
+
+                    // 2. Process queue
+                    $process_result = $scheduler->process_queue();
+                    $results['actions']['process'] = [
+                        'success' => $process_result['success'] ?? false,
+                        'processed' => $process_result['processed'] ?? 0,
+                    ];
+
+                    // 3. Auto-publish
+                    $publish_result = $scheduler->auto_publish();
+                    $results['actions']['publish'] = [
+                        'success' => $publish_result['success'] ?? false,
+                        'published' => $publish_result['published'] ?? 0,
+                    ];
+                    break;
+            }
+
+            // Summary
+            $results['summary'] = [
+                'articles_fetched' => $results['actions']['fetch']['fetched'] ?? 0,
+                'drafts_created' => $results['actions']['process']['processed'] ?? 0,
+                'posts_published' => $results['actions']['publish']['published'] ?? 0,
+            ];
+
+        } catch (Throwable $e) {
+            $results['status'] = 'error';
+            $results['error'] = $e->getMessage();
+            AINCC_Logger::error('Public cron error', ['error' => $e->getMessage()]);
+        }
+
+        return new WP_REST_Response($results, 200);
+    }
+
+    /**
+     * Get cron setup information including secret key and instructions
+     */
+    public function get_cron_setup_info($request) {
+        // Get or create secret
+        $secret = get_option('aincc_cron_secret', '');
+        if (empty($secret)) {
+            $secret = wp_generate_password(32, false);
+            update_option('aincc_cron_secret', $secret, 'no');
+        }
+
+        $site_url = get_site_url();
+        $rest_url = rest_url('aincc/v1/cron');
+        $cron_file_url = plugins_url('cron.php', AINCC_PLUGIN_DIR . '/ai-news-control-center-plugin.php');
+
+        // Build example commands
+        $curl_cmd = "curl -s \"{$rest_url}?secret={$secret}\" > /dev/null 2>&1";
+        $wget_cmd = "wget -q -O /dev/null \"{$rest_url}?secret={$secret}\"";
+
+        return new WP_REST_Response([
+            'secret' => $secret,
+            'endpoints' => [
+                'rest_api' => $rest_url,
+                'cron_file' => $cron_file_url,
+            ],
+            'commands' => [
+                'curl' => $curl_cmd,
+                'wget' => $wget_cmd,
+            ],
+            'crontab_examples' => [
+                'every_5_min' => "*/5 * * * * {$curl_cmd}",
+                'every_10_min' => "*/10 * * * * {$curl_cmd}",
+                'every_15_min' => "*/15 * * * * {$curl_cmd}",
+                'every_30_min' => "*/30 * * * * {$curl_cmd}",
+                'hourly' => "0 * * * * {$curl_cmd}",
+            ],
+            'instructions' => [
+                'ru' => [
+                    '1. Откройте crontab на сервере: crontab -e',
+                    '2. Добавьте строку из примера (every_5_min для каждых 5 минут)',
+                    '3. Сохраните и закройте',
+                    '4. Опционально: отключите WP Cron в wp-config.php:',
+                    "   define('DISABLE_WP_CRON', true);",
+                ],
+                'actions' => [
+                    'all' => 'Полный цикл: сбор → обработка → публикация',
+                    'fetch' => 'Только сбор новостей из RSS',
+                    'process' => 'Только обработка очереди (AI)',
+                    'publish' => 'Только автопубликация',
+                    'cleanup' => 'Очистка старых данных',
+                ],
+            ],
+            'wp_cron_disabled' => defined('DISABLE_WP_CRON') && DISABLE_WP_CRON,
+        ], 200);
+    }
+
+    /**
+     * Regenerate cron secret key
+     */
+    public function regenerate_cron_secret($request) {
+        $new_secret = wp_generate_password(32, false);
+        update_option('aincc_cron_secret', $new_secret, 'no');
+
+        AINCC_Logger::info('Cron secret regenerated');
+
+        return new WP_REST_Response([
+            'success' => true,
+            'secret' => $new_secret,
+            'message' => 'Секретный ключ обновлён. Не забудьте обновить его в crontab!',
         ], 200);
     }
 }

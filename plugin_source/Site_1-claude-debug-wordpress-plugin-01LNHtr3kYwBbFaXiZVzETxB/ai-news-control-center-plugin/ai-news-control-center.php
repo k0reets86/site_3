@@ -3,7 +3,7 @@
  * Plugin Name: AI News Control Center
  * Plugin URI: https://github.com/your-repo/ai-news-control-center
  * Description: Autonomous news platform for content aggregation, AI processing, translation, and multi-channel publishing
- * Version: 1.0.0
+ * Version: 2.9.0
  * Author: AI News Team
  * Author URI: https://your-site.de
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Plugin constants
-define('AINCC_VERSION', '1.0.0');
+define('AINCC_VERSION', '2.9.0');
 define('AINCC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AINCC_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('AINCC_PLUGIN_BASENAME', plugin_basename(__FILE__));
